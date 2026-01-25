@@ -32,6 +32,9 @@ COPY --from=builder /app/server .
 # Copy database migration files
 COPY --from=builder /app/db ./db
 
+# Copy scripts for administrative tasks (like seeder)
+COPY --from=builder /app/scripts ./scripts
+
 # Copy frontend static files (required for the file server)
 COPY --from=builder /app/frontend ./frontend
 
