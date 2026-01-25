@@ -29,7 +29,7 @@ services:
     networks:
       - crom_net
     ports:
-      - "5432:5432" # Optional: Expose DB for local dev
+      - "5433:5432" # Changed to 5433 to avoid conflict with host Postgres
 
 networks:
   crom_net:
