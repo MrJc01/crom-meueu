@@ -7,6 +7,20 @@ if (!window.cromAuth) {
 }
 window.identityManager = window.cromAuth; // Backwards compatibility
 
+// UI Helper Methods attached to the Identity Manager instance
+// UI Helper Methods
+window.checkSession = function () {
+    const auth = window.cromAuth || window.identityManager;
+    if (auth && auth.keyPair) {
+        alert("You are already logged in!");
+        updateAuthUI();
+    } else {
+        showLogin();
+    }
+};
+// Alias for backward compat (if needed, but moving away from it)
+window.identityManager.checkSession = window.checkSession;
+
 document.addEventListener('DOMContentLoaded', async () => {
 
     injectLoginModal();
@@ -17,11 +31,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Let's implement basic session usage here using the SDK methods.
 
     // Check if we have a stored session
+    // Check if we have a stored session
     const stored = JSON.parse(sessionStorage.getItem('crom_identity'));
     if (stored && stored.seed) {
         await window.cromAuth.login(stored.seed);
-        updateAuthUI();
     }
+
+    // Always update UI (shows "Login" button if not logged in)
+    updateAuthUI();
 });
 
 function injectLoginModal() {

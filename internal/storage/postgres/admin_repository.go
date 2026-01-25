@@ -44,7 +44,7 @@ func (r *AdminRepository) GetWhitelist(ctx context.Context) ([]string, error) {
 	}
 	defer rows.Close()
 
-	var keys []string
+	keys := []string{}
 	for rows.Next() {
 		var key string
 		if err := rows.Scan(&key); err != nil {
@@ -64,7 +64,7 @@ func (r *AdminRepository) GetBannedWords(ctx context.Context) ([]string, error) 
 	}
 	defer rows.Close()
 
-	var words []string
+	words := []string{}
 	for rows.Next() {
 		var word string
 		if err := rows.Scan(&word); err != nil {
@@ -73,6 +73,26 @@ func (r *AdminRepository) GetBannedWords(ctx context.Context) ([]string, error) 
 		words = append(words, word)
 	}
 	return words, nil
+}
+
+// ...
+
+func (r *AdminRepository) GetBannedUsers(ctx context.Context) ([]string, error) {
+	rows, err := r.pool.Query(ctx, "SELECT public_key FROM banned_users ORDER BY created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := []string{}
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
 }
 
 func (r *AdminRepository) AddBannedWord(ctx context.Context, word string) error {
@@ -111,4 +131,51 @@ func (r *AdminRepository) GetStats(ctx context.Context) (*SystemStats, error) {
 	}
 
 	return stats, nil
+}
+
+// --- Banned Users ---
+
+func (r *AdminRepository) IsBannedUser(ctx context.Context, pubKey string) (bool, error) {
+	var exists bool
+	query := "SELECT EXISTS(SELECT 1 FROM banned_users WHERE public_key = $1)"
+	err := r.pool.QueryRow(ctx, query, pubKey).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check ban: %w", err)
+	}
+	return exists, nil
+}
+
+func (r *AdminRepository) BanUser(ctx context.Context, pubKey, reason string) error {
+	_, err := r.pool.Exec(ctx, "INSERT INTO banned_users (public_key, reason) VALUES ($1, $2) ON CONFLICT DO NOTHING", pubKey, reason)
+	return err
+}
+
+func (r *AdminRepository) UnbanUser(ctx context.Context, pubKey string) error {
+	_, err := r.pool.Exec(ctx, "DELETE FROM banned_users WHERE public_key = $1", pubKey)
+	return err
+}
+
+func (r *AdminRepository) GetBannedUsers(ctx context.Context) ([]string, error) {
+	rows, err := r.pool.Query(ctx, "SELECT public_key FROM banned_users ORDER BY created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := []string{}
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+// --- Content Moderation ---
+
+func (r *AdminRepository) DeleteNode(ctx context.Context, nodeID string) error {
+	_, err := r.pool.Exec(ctx, "DELETE FROM nodes WHERE id = $1", nodeID)
+	return err
 }

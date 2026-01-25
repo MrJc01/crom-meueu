@@ -1,79 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CROM /// ADMIN - GOD MODE</title>
     <link rel="stylesheet" href="css/admin.css">
 </head>
+
 <body>
 
-<div class="container">
-    <header>
-        <h1>System Override // Admin</h1>
-        <div id="connection-status">STATUS: UNAUTHORIZED</div>
-    </header>
+    <div class="container">
+        <header>
+            <h1>System Override // Admin</h1>
+            <div id="connection-status">STATUS: UNAUTHORIZED</div>
+        </header>
 
-    <!-- Login Section -->
-    <div id="auth-section">
-        <h2>Authenticate</h2>
-        <input type="password" id="admin-token" placeholder="Enter System Token">
-        <button onclick="AdminApp.login()">Connect</button>
+        <!-- Login Section -->
+        <div id="auth-section">
+            <h2>Authenticate</h2>
+            <input type="password" id="admin-token" placeholder="Enter System Token">
+            <button onclick="AdminApp.login()">Connect</button>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="hidden">
+
+            <!-- Stats -->
+            <div class="card">
+                <h3>System Vitality</h3>
+                <div class="stat-grid" id="stats-container">
+                    <div class="stat-item">
+                        <div class="stat-label">Nodes</div>
+                        <div class="stat-value" id="stat-nodes">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Users</div>
+                        <div class="stat-value" id="stat-users">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">24h Active</div>
+                        <div class="stat-value" id="stat-active">0</div>
+                    </div>
+                </div>
+                <br>
+                <button onclick="AdminApp.loadStats()">Refresh</button>
+            </div>
+
+            <!-- Whitelist -->
+            <div class="card">
+                <h3>Access Control (Whitelist)</h3>
+                <div class="input-group">
+                    <input type="text" id="whitelist-input" placeholder="User Public Key (Hex)">
+                    <button onclick="AdminApp.addToWhitelist()">Grant Access</button>
+                </div>
+                <ul id="whitelist-list">
+                    <!-- Items -->
+                </ul>
+            </div>
+
+            <!-- Audit Log -->
+            <div class="card">
+                <h3>Audit Log (Local Session)</h3>
+                <ul id="audit-log-list"
+                    style="font-family:monospace; font-size:12px; color:#aaa; list-style:none; padding:0">
+                    <li>--- System Initialized ---</li>
+                </ul>
+            </div>
+
+            <!-- Ban User -->
+            <div class="card" style="border-color: #ff3333; background: rgba(255, 51, 51, 0.05)">
+                <h3>⛔ User Blacklist (Ban)</h3>
+                <div class="input-group">
+                    <input type="text" id="banuser-input" placeholder="User Public Key (Hex)">
+                    <input type="text" id="banuser-reason" placeholder="Reason (e.g. Spam)" style="margin-top:5px">
+                    <button onclick="AdminApp.banUser()" class="danger">Ban User</button>
+                </div>
+                <ul id="banuser-list">
+                    <!-- Items -->
+                </ul>
+            </div>
+
+            <!-- Delete Node -->
+            <div class="card" style="border-color: #ff3333; background: rgba(255, 51, 51, 0.05)">
+                <h3>🗑️ Delete Content</h3>
+                <div class="input-group">
+                    <input type="text" id="deletenode-input" placeholder="Node ID (UUID)">
+                    <button onclick="AdminApp.deleteNode()" class="danger">Delete Node</button>
+                </div>
+            </div>
+
+            <!-- Banned Words -->
+            <div class="card">
+                <h3>Content Filter (Banned Words)</h3>
+                <div class="input-group">
+                    <input type="text" id="banword-input" placeholder="Word to Ban">
+                    <button onclick="AdminApp.banWord()" class="danger">Ban Word</button>
+                </div>
+                <ul id="banword-list">
+                    <!-- Items -->
+                </ul>
+            </div>
+
+            <button onclick="AdminApp.logout()">Terminate Session</button>
+
+        </div>
     </div>
 
-    <!-- Dashboard Section -->
-    <div id="dashboard-section" class="hidden">
-        
-        <!-- Stats -->
-        <div class="card">
-            <h3>System Vitality</h3>
-            <div class="stat-grid" id="stats-container">
-                <div class="stat-item">
-                    <div class="stat-label">Nodes</div>
-                    <div class="stat-value" id="stat-nodes">0</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Users</div>
-                    <div class="stat-value" id="stat-users">0</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">24h Active</div>
-                    <div class="stat-value" id="stat-active">0</div>
-                </div>
-            </div>
-            <br>
-            <button onclick="AdminApp.loadStats()">Refresh</button>
-        </div>
-
-        <!-- Whitelist -->
-        <div class="card">
-            <h3>Access Control (Whitelist)</h3>
-            <div class="input-group">
-                <input type="text" id="whitelist-input" placeholder="User Public Key (Hex)">
-                <button onclick="AdminApp.addToWhitelist()">Grant Access</button>
-            </div>
-            <ul id="whitelist-list">
-                <!-- Items -->
-            </ul>
-        </div>
-
-        <!-- Banned Words -->
-        <div class="card">
-            <h3>Content Filter (Banned Words)</h3>
-            <div class="input-group">
-                <input type="text" id="banword-input" placeholder="Word to Ban">
-                <button onclick="AdminApp.banWord()" class="danger">Ban Word</button>
-            </div>
-            <ul id="banword-list">
-                <!-- Items -->
-            </ul>
-        </div>
-
-        <button onclick="AdminApp.logout()">Terminate Session</button>
-
-    </div>
-</div>
-
-<script src="js/admin.js"></script>
+    <script src="js/admin.js"></script>
 </body>
+
 </html>

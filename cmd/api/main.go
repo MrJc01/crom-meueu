@@ -12,10 +12,17 @@ import (
 	"meueu/internal/api/handlers"
 	"meueu/internal/api/middleware"
 	"meueu/internal/storage/postgres"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	log.Println("Starting Meueu (Crom Social Protocol) Node...")
+
+	// Load .env
+	if err := godotenv.Load(); err != nil {
+		log.Println("Note: No .env file found, relying on system environment variables.")
+	}
 
 	// 1. Setup Context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -47,6 +54,13 @@ func main() {
 	}
 
 	// 3. Setup core components
+	// Run Migrations (Auto-Schema)
+	dbURL := os.Getenv("DATABASE_URL")
+	if err := postgres.RunMigrations(dbURL); err != nil {
+		log.Printf("Migration warning: %v", err)
+		// Don't die, maybe just connection issue or already locked
+	}
+
 	nodeRepo := postgres.NewNodeRepository(dbPool)
 	adminRepo := postgres.NewAdminRepository(dbPool)
 
@@ -57,16 +71,19 @@ func main() {
 	// Middlewares
 	whitelistMiddleware := middleware.NewWhitelistMiddleware(adminRepo)
 	contentFilterMiddleware := middleware.NewContentFilterMiddleware(adminRepo)
+	banlistMiddleware := middleware.NewBanlistMiddleware(adminRepo)
 
 	// 4. Setup Routes & Middleware
 	mux := http.NewServeMux()
 
 	// Public API Routes (v1)
 	// Apply Governance Middlewares to Publish Endpoint
-	// Chain: ContentFilter -> Whitelist -> Publish
+	// Chain: Banlist -> ContentFilter -> Whitelist -> Publish
 	// Note: We wrap the handler specifically
-	publishChain := contentFilterMiddleware.Middleware(
-		whitelistMiddleware.Middleware(http.HandlerFunc(publishHandler.Handle)),
+	publishChain := banlistMiddleware.Middleware(
+		contentFilterMiddleware.Middleware(
+			whitelistMiddleware.Middleware(http.HandlerFunc(publishHandler.Handle)),
+		),
 	)
 
 	mux.Handle("/v1/publish", publishChain)
@@ -112,6 +129,29 @@ func main() {
 		case http.MethodDelete:
 			adminHandler.HandleUnbanWord(w, r)
 		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// User Bans
+	adminMux.HandleFunc("/banned_users", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			adminHandler.HandleListBannedUsers(w, r)
+		case http.MethodPost:
+			adminHandler.HandleBanUser(w, r)
+		case http.MethodDelete:
+			adminHandler.HandleUnbanUser(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Content Deletion
+	adminMux.HandleFunc("/node", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			adminHandler.HandleDeleteNode(w, r)
+		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})

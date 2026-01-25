@@ -142,3 +142,74 @@ func (h *AdminHandler) HandleListBannedWords(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(words)
 }
+
+// --- User Moderation (Ban) ---
+
+func (h *AdminHandler) HandleBanUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		PublicKey string `json:"public_key"`
+		Reason    string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.BanUser(r.Context(), req.PublicKey, req.Reason); err != nil {
+		http.Error(w, "Failed to ban user", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AdminHandler) HandleUnbanUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	pubKey := r.URL.Query().Get("public_key")
+	if pubKey == "" {
+		http.Error(w, "Missing public_key", http.StatusBadRequest)
+		return
+	}
+	if err := h.repo.UnbanUser(r.Context(), pubKey); err != nil {
+		http.Error(w, "Failed to unban user", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AdminHandler) HandleListBannedUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.repo.GetBannedUsers(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to list banned users", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
+}
+
+// --- Content Moderation (Delete Node) ---
+
+func (h *AdminHandler) HandleDeleteNode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	nodeID := r.URL.Query().Get("id")
+	if nodeID == "" {
+		http.Error(w, "Missing id", http.StatusBadRequest)
+		return
+	}
+	if err := h.repo.DeleteNode(r.Context(), nodeID); err != nil {
+		http.Error(w, "Failed to delete node", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}

@@ -9,10 +9,34 @@
 
 ---
 
-## 🚀 Quick Start (Docker)
-The fastest way to run your own node.
+## 🚀 Quick Start (Complete Ecosystem)
 
 ### 1. Requirements
+- Linux/Mac Environment
+- Go 1.23+ & PostgreSQL
+- `git`
+
+### 2. Fast Run (Dev Mode)
+```bash
+# 1. Setup Environment
+cp .env.example .env
+# (Optional: Edit .env for DB credentials)
+
+# 2. Run API (Auto-Migrations Included)
+./bin/api
+
+# 3. Generate Admin Password
+./scripts/gen_pass.sh "your_secret_password"
+# Copy output hash to ADMIN_SECRET_HASH in .env and restart api
+```
+
+### 3. Usage
+- **Frontend**: [http://localhost:8080](http://localhost:8080)
+- **Admin**: [http://localhost:8080/admin.html](http://localhost:8080/admin.html)
+
+---
+
+## 🐳 Docker Quick Start
 - Docker & Docker Compose
 - `git`
 

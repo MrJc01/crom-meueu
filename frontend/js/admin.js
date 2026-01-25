@@ -30,12 +30,24 @@ const AdminApp = {
             });
     },
 
+
+
+    logAction: (msg) => {
+        const ul = document.getElementById('audit-log-list');
+        if (!ul) return;
+        const li = document.createElement('li');
+        li.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        ul.prepend(li);
+    },
+
     logout: () => {
         sessionStorage.removeItem('admin_token');
         window.location.reload();
     },
 
     showDashboard: () => {
+        // Log action
+        AdminApp.logAction("Dashboard Loaded");
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
         document.getElementById('connection-status').innerText = "STATUS: CONNECTED [ROOT]";
@@ -72,7 +84,7 @@ const AdminApp = {
         const list = await res.json();
         const ul = document.getElementById('whitelist-list');
         ul.innerHTML = '';
-        list.forEach(key => {
+        (list || []).forEach(key => {
             const li = document.createElement('li');
             li.innerHTML = `<span>${key.substring(0, 16)}...</span> <button onclick="AdminApp.removeFromWhitelist('${key}')" class="danger">Revoke</button>`;
             ul.appendChild(li);
@@ -108,7 +120,7 @@ const AdminApp = {
         const list = await res.json();
         const ul = document.getElementById('banword-list');
         ul.innerHTML = '';
-        list.forEach(word => {
+        (list || []).forEach(word => {
             const li = document.createElement('li');
             li.innerHTML = `<span>${word}</span> <button onclick="AdminApp.unbanWord('${word}')">Unban</button>`;
             ul.appendChild(li);
@@ -135,6 +147,68 @@ const AdminApp = {
             headers: AdminApp.headers()
         });
         AdminApp.loadBannedWords();
+    },
+
+    // Banned Users
+    loadBannedUsers: async () => {
+        const res = await fetch(`${AdminApp.baseUrl}/banned_users`, { headers: AdminApp.headers() });
+        const list = await res.json();
+        const ul = document.getElementById('banuser-list');
+        ul.innerHTML = '';
+        list.forEach(key => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${key.substring(0, 16)}...</span> <button onclick="AdminApp.unbanUser('${key}')" class="danger">Unban</button>`;
+            ul.appendChild(li);
+        });
+    },
+
+    banUser: async () => {
+        const input = document.getElementById('banuser-input');
+        const reason = document.getElementById('banuser-reason').value;
+        const key = input.value.trim();
+        if (!key) return;
+
+        await fetch(`${AdminApp.baseUrl}/banned_users`, {
+            method: 'POST',
+            headers: AdminApp.headers(),
+            body: JSON.stringify({ public_key: key, reason: reason })
+        });
+        input.value = '';
+        AdminApp.logAction(`Banned User: ${key}`);
+        AdminApp.loadBannedUsers();
+    },
+
+    unbanUser: async (key) => {
+        if (!confirm("Unban User?")) return;
+        await fetch(`${AdminApp.baseUrl}/banned_users?public_key=${key}`, {
+            method: 'DELETE',
+            headers: AdminApp.headers()
+        });
+        AdminApp.logAction(`Unbanned User: ${key}`);
+        AdminApp.loadBannedUsers();
+    },
+
+    // Delete Node
+    deleteNode: async () => {
+        const input = document.getElementById('deletenode-input');
+        const id = input.value.trim();
+        if (!id) return;
+
+        if (!confirm("Permanently delete this node?")) return;
+
+        const res = await fetch(`${AdminApp.baseUrl}/node?id=${id}`, {
+            method: 'DELETE',
+            headers: AdminApp.headers()
+        });
+
+        if (res.ok) {
+            alert("Node Deleted");
+            AdminApp.logAction(`Deleted Node: ${id}`);
+            input.value = '';
+            AdminApp.loadStats();
+        } else {
+            alert("Failed to delete");
+        }
     }
 };
 
