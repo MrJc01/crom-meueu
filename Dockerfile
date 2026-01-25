@@ -29,6 +29,9 @@ RUN apk add --no-cache ca-certificates
 # Copy binary from builder
 COPY --from=builder /app/server .
 
+# Copy database migration files
+COPY --from=builder /app/db ./db
+
 # Copy frontend static files (required for the file server)
 COPY --from=builder /app/frontend ./frontend
 
