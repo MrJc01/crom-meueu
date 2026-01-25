@@ -1,0 +1,16 @@
+# Binaries
+/bin/
+/server
+*.exe
+*.test
+
+# Environment
+.env
+.env.local
+
+# Docker / DB
+postgres_data/
+
+# OS Specific
+.DS_Store
+Thumbs.db

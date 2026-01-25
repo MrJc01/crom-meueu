@@ -102,7 +102,8 @@
     <script src="js/lib/nacl.min.js"></script>
     <script src="js/lib/nacl-util.min.js"></script>
     <script src="js/lib/ed2curve.min.js"></script>
-    <script src="js/crypto_auth.js"></script>
+    <script src="js/sdk/auth.js"></script>
+    <script src="js/sdk/client.js"></script>
     <script src="js/ui_login.js"></script>
     <script src="js/ui_dm.js"></script>
     <script src="js/ui_server.js"></script>
@@ -112,6 +113,11 @@
         async function loadInbox() {
             const im = window.identityManager;
             const list = document.getElementById('inbox-list');
+
+            if (!im) {
+                console.warn("Identity Manager not initialized");
+                return;
+            }
 
             // Wait for auth
             if (!im.keyPair) {
@@ -137,8 +143,15 @@
                 div.className = 'dm-card';
                 div.innerHTML = `
                     <div class="dm-header">
-                        <div>From: <span class="sender-badge">${msg.sender.substring(0, 8)}...</span></div>
-                        <div style="font-size:12px; color:#888">${new Date(msg.sent_at).toLocaleString()}</div>
+                        <div>
+                            From: <a href="profile.html?pubkey=${msg.sender}" style="text-decoration:none">
+                                <span class="sender-badge">${msg.sender.substring(0, 8)}...</span>
+                            </a>
+                        </div>
+                        <div style="font-size:12px; color:#888; display:flex; align-items:center; gap:10px">
+                            <span>${new Date(msg.sent_at).toLocaleString()}</span>
+                            <button onclick="window.location.href='chat.html?peer=${msg.sender}'" style="padding:4px 8px; font-size:11px; background:#333; border:1px solid #555; color:white;">Reply 💬</button>
+                        </div>
                     </div>
                     <div class="dm-content">${msg.content}</div>
                 `;

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>InstaCrom</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            background: #000 !important;
+        }
+
+        .insta-container {
+            max-width: 470px;
+            margin: 0 auto;
+            padding-bottom: 80px;
+            background: #000;
+            min-height: 100vh;
+            border-left: 1px solid #262626;
+            border-right: 1px solid #262626;
+        }
+
+        /* Stories */
+        .stories-bar {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            overflow-x: auto;
+            border-bottom: 1px solid #262626;
+        }
+
+        .story-circle {
+            width: 66px;
+            height: 66px;
+            border-radius: 50%;
+            padding: 2px;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .story-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid black;
+            background: #222;
+        }
+
+        /* Post */
+        .insta-post {
+            border-bottom: 1px solid #262626;
+            padding-bottom: 15px;
+        }
+
+        .post-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px;
+        }
+
+        .ph-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ph-avi {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #444;
+        }
+
+        .ph-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: white;
+            text-decoration: none;
+        }
+
+        .post-img-container {
+            width: 100%;
+            aspect-ratio: 1/1;
+            background: #111;
+            overflow: hidden;
+        }
+
+        .post-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .post-actions {
+            padding: 12px 14px 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 24px;
+        }
+
+        .action-icons {
+            display: flex;
+            gap: 16px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: white;
+            padding: 0;
+            cursor: pointer;
+            font-size: 24px;
+        }
+
+        .post-likes {
+            padding: 0 14px;
+            margin-top: 10px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .post-caption {
+            padding: 0 14px;
+            margin-top: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .caption-name {
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        .post-time {
+            padding: 0 14px;
+            margin-top: 6px;
+            font-size: 10px;
+            color: #a8a8a8;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="insta-container">
+        <!-- Header -->
+        <div
+            style="padding:10px 15px; border-bottom:1px solid #262626; display:flex; justify-content:space-between; align-items:center">
+            <h1
+                style="font-family:'Grand Hotel', cursive; font-size:24px; margin:0; background:none; -webkit-text-fill-color:white;">
+                InstaCrom</h1>
+            <div style="display:flex; gap:15px">
+                <span>❤️</span>
+                <span onclick="window.location.href='inbox.html'" style="cursor:pointer">💬</span>
+            </div>
+        </div>
+
+        <!-- Stories -->
+        <div class="stories-bar" id="stories-feed">
+            <!-- Add Self Story -->
+            <div class="story-circle" style="background:#333">
+                <div class="story-img"
+                    style="display:flex;align-items:center;justify-content:center;color:#666;font-size:20px">+</div>
+            </div>
+        </div>
+
+        <!-- Feed -->
+        <div id="feed"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/lib/nacl.min.js"></script>
+    <script src="js/lib/nacl-util.min.js"></script>
+    <script src="js/lib/ed2curve.min.js"></script>
+    <script src="js/sdk/auth.js"></script>
+    <script src="js/sdk/client.js"></script>
+    <script src="js/ui_server.js"></script>
+    <script src="js/api.js"></script>
+
+    <script>
+        // Fetch Image Nodes
+        fetchNodes({ kinds: ["image", "video"] }).then(nodes => {
+            // "image" or "video" (reels-like)
+
+            const feed = document.getElementById('feed');
+            const stories = document.getElementById('stories-feed');
+
+            // Unique Authors for Stories
+            const authors = [...new Set(nodes.map(n => n.author_pubkey))];
+            authors.forEach(pub => {
+                const hue = parseInt(pub.substring(0, 2), 16);
+                const div = document.createElement('div');
+                div.className = 'story-circle';
+                div.innerHTML = `<div class="story-img" style="background:hsl(${hue}, 60%, 50%)"></div>`;
+                div.onclick = () => window.location.href = `profile.html?pubkey=${pub}`;
+                stories.appendChild(div);
+            });
+
+            feed.innerHTML = '';
+
+            nodes.forEach(node => {
+                const div = document.createElement('div');
+                div.className = 'insta-post';
+
+                const hue = parseInt(node.author_pubkey.substring(0, 2), 16);
+                const thumb = node.payload.url || node.payload.thumbnail || "https://placehold.co/500x500/111/FFF?text=No+Image";
+                const isVideo = node.kind === 'video';
+
+                // If video, use thumbnail as main image for now (simple clone)
+                // Or render video tag if simple
+
+                let mediaHtml = `<img src="${thumb}" class="post-img" loading="lazy">`;
+                if (isVideo && node.payload.url) {
+                    // mediaHtml = `<video src="${node.payload.url}" class="post-img" controls></video>`;
+                    // Instagram usually autoplays. Let's stick to image for feed, user clicks to watch? 
+                    // Or simple video tag.
+                    mediaHtml = `<video src="${node.payload.url}" class="post-img" controls playsinline></video>`;
+                }
+
+                div.innerHTML = `
+                    <div class="post-header">
+                        <div class="ph-left">
+                            <a href="profile.html?pubkey=${node.author_pubkey}">
+                                <div class="ph-avi" style="background:hsl(${hue}, 60%, 50%)"></div>
+                            </a>
+                            <a href="profile.html?pubkey=${node.author_pubkey}" class="ph-name">
+                                ${node.author_pubkey.substring(0, 10)}
+                            </a>
+                        </div>
+                        <div style="color:white; cursor:pointer">•••</div>
+                    </div>
+                    
+                    <div class="post-img-container">
+                        ${mediaHtml}
+                    </div>
+
+                    <div class="post-actions">
+                        <div class="action-icons">
+                            <button class="action-btn">❤️</button>
+                            <button class="action-btn" onclick="window.location.href='thread.html?id=${node.id}'">💬</button>
+                            <button class="action-btn">🚀</button>
+                        </div>
+                        <button class="action-btn">🔖</button>
+                    </div>
+
+                    <div class="post-likes">${Math.floor(Math.random() * 1000)} likes</div>
+
+                    <div class="post-caption">
+                        <span class="caption-name">${node.author_pubkey.substring(0, 10)}</span>
+                        ${node.payload.title || node.payload.content || ""}
+                    </div>
+
+                    <div class="post-time">${getTimeAgo(node.claimed_at)}</div>
+                `;
+                feed.appendChild(div);
+            });
+        });
+
+        function getTimeAgo(dateString) {
+            const diff = (new Date() - new Date(dateString)) / 1000;
+            if (diff < 60) return "JUST NOW";
+            if (diff < 3600) return Math.floor(diff / 60) + " MINUTES AGO";
+            if (diff < 86400) return Math.floor(diff / 3600) + " HOURS AGO";
+            return Math.floor(diff / 86400) + " DAYS AGO";
+        }
+    </script>
+</body>
+
+</html>

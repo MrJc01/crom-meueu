@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -47,21 +48,82 @@ func main() {
 
 	// 3. Setup core components
 	nodeRepo := postgres.NewNodeRepository(dbPool)
+	adminRepo := postgres.NewAdminRepository(dbPool)
+
 	publishHandler := handlers.NewPublishHandler(nodeRepo)
 	queryHandler := handlers.NewQueryHandler(nodeRepo)
+	adminHandler := handlers.NewAdminHandler(adminRepo)
+
+	// Middlewares
+	whitelistMiddleware := middleware.NewWhitelistMiddleware(adminRepo)
+	contentFilterMiddleware := middleware.NewContentFilterMiddleware(adminRepo)
 
 	// 4. Setup Routes & Middleware
 	mux := http.NewServeMux()
 
-	// API Routes (v1)
-	mux.HandleFunc("/v1/publish", publishHandler.Handle)
-	mux.HandleFunc("/v1/query", queryHandler.Handle)
+	// Public API Routes (v1)
+	// Apply Governance Middlewares to Publish Endpoint
+	// Chain: ContentFilter -> Whitelist -> Publish
+	// Note: We wrap the handler specifically
+	publishChain := contentFilterMiddleware.Middleware(
+		whitelistMiddleware.Middleware(http.HandlerFunc(publishHandler.Handle)),
+	)
+
+	mux.Handle("/v1/publish", publishChain)
+
+	// Apply Whitelist to Query as well (if strict mode enabled)
+	// QueryHandler is read-only usually, but user requested "Rotas Públicas... middleware CheckWhitelist"
+	// ContentFilter is typically for Write, so we skip it for Query.
+	queryChain := whitelistMiddleware.Middleware(http.HandlerFunc(queryHandler.Handle))
+	mux.Handle("/v1/query", queryChain)
+
+	// Transparency Route (Required by License)
+	mux.HandleFunc("/meta", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"server":     "Crom/Meueu Node",
+			"version":    "0.2.0-governance",
+			"source_url": "https://github.com/your-username/crom-meueu", // Should be configured via env realistically
+			"mode":       os.Getenv("SERVER_MODE"),
+		})
+	})
+
+	// Admin API Routes (Protected)
+	adminMux := http.NewServeMux()
+	adminMux.HandleFunc("/stats", adminHandler.HandleStats)
+	adminMux.HandleFunc("/whitelist", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			adminHandler.HandleWhitelistList(w, r)
+		case http.MethodPost:
+			adminHandler.HandleWhitelistAdd(w, r)
+		case http.MethodDelete:
+			adminHandler.HandleWhitelistRemove(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	adminMux.HandleFunc("/banned_words", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			adminHandler.HandleListBannedWords(w, r)
+		case http.MethodPost:
+			adminHandler.HandleBanWord(w, r)
+		case http.MethodDelete:
+			adminHandler.HandleUnbanWord(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Mount Admin Routes with Auth Middleware
+	mux.Handle("/admin/", http.StripPrefix("/admin", middleware.AuthAdmin(adminMux)))
 
 	// Static Files (Frontend)
 	fs := http.FileServer(http.Dir("./frontend"))
 	mux.Handle("/", fs)
 
-	// Wrap with Middleware (CORS)
+	// Wrap with Global Middleware (CORS)
 	handler := middleware.CORS(mux)
 
 	// 5. Start Server

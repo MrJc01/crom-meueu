@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Publish | Crom</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .publish-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding-top: 40px;
+        }
+
+        .publish-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            padding: 30px;
+            border-radius: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            background: #111;
+            border: 1px solid #333;
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        button.publish-btn {
+            background: #00d2ff;
+            color: black;
+            border: none;
+            padding: 15px 30px;
+            font-weight: bold;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button.publish-btn:hover {
+            opacity: 0.9;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #auth-warning {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid red;
+            border-radius: 12px;
+            color: #ff5555;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container publish-container">
+        <h1>📢 Publish Content</h1>
+
+        <div id="auth-warning" class="hidden">
+            <h2>Authentication Required</h2>
+            <p>You must login to publish to the network.</p>
+            <button onclick="window.identityManager.checkSession()"
+                style="background:#333; color:white; border:none; padding:10px; margin-top:10px; cursor:pointer">Check
+                Login</button>
+        </div>
+
+        <div id="publish-form" class="publish-card">
+            <div class="form-group">
+                <label>Content Type</label>
+                <select id="kind-select" onchange="updateForm()">
+                    <option value="text">Micro-post (Twitter-style)</option>
+                    <option value="article">Article (Blog/News)</option>
+                    <option value="video">Video (YouTube/TikTok)</option>
+                    <option value="image">Photo (Instagram)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="title" placeholder="Optional for micro-posts">
+            </div>
+
+            <div class="form-group" id="url-group" class="hidden">
+                <label>Video URL / Thumbnail</label>
+                <input type="text" id="url" placeholder="http://..." style="margin-bottom:10px">
+                <input type="text" id="thumbnail" placeholder="Thumbnail URL">
+            </div>
+
+            <div class="form-group">
+                <label>Content / Description</label>
+                <textarea id="content" rows="6" placeholder="What's happening?"></textarea>
+            </div>
+
+            <button class="publish-btn" onclick="publish()">Publish to Network 🚀</button>
+        </div>
+    </div>
+
+    <!-- SDK -->
+    <script src="js/lib/nacl.min.js"></script>
+    <script src="js/lib/nacl-util.min.js"></script>
+    <script src="js/lib/ed2curve.min.js"></script>
+    <script src="js/sdk/auth.js"></script>
+    <script src="js/sdk/client.js"></script>
+
+    <!-- App -->
+    <script src="js/ui_login.js"></script>
+    <script src="js/ui_server.js"></script>
+    <script src="js/api.js"></script>
+
+    <script>
+        // Init Logic
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Wait a sec for auth to bubble up
+            setTimeout(() => {
+                if (!window.cromAuth || !window.cromAuth.keyPair) {
+                    document.getElementById('auth-warning').classList.remove('hidden');
+                    document.getElementById('publish-form').classList.add('hidden');
+                }
+            }, 500);
+            updateForm();
+        });
+
+        function updateForm() {
+            const kind = document.getElementById('kind-select').value;
+            const urlGroup = document.getElementById('url-group');
+            const urlLabel = document.querySelector('#url-group label');
+            const urlInput = document.getElementById('url');
+
+            if (kind === 'video') {
+                urlGroup.classList.remove('hidden');
+                urlLabel.innerText = 'Video URL / Thumbnail';
+                urlInput.placeholder = "http://... (Video File)";
+            } else if (kind === 'image') {
+                urlGroup.classList.remove('hidden');
+                urlLabel.innerText = 'Image URL';
+                urlInput.placeholder = "http://... (Image File)";
+                document.getElementById('thumbnail').classList.add('hidden');
+            } else {
+                urlGroup.classList.add('hidden');
+            }
+        }
+
+        async function publish() {
+            const kind = document.getElementById('kind-select').value;
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const url = document.getElementById('url').value;
+            const thumbnail = document.getElementById('thumbnail').value;
+
+            if (!content && !title && !url) return alert("Content cannot be empty");
+
+            const payload = {
+                title: title,
+                content: content,
+                timestamp: Date.now()
+            };
+
+            if (kind === 'video') {
+                payload.url = url;
+                payload.thumbnail = thumbnail;
+            } else if (kind === 'image') {
+                payload.url = url;
+            }
+
+            // Client-side Canonical Signing
+            // This replicates the logic we used in UI_DM but generic.
+            // Ideally SDK Client should have a .publish(auth, kind, payload) method that handles signing.
+            // But our SDK client.js `publish` takes a PRE-SIGNED object.
+            // Let's create a helper here or extend the SDK later.
+
+            try {
+                const result = await signAndSend(kind, payload);
+                if (result.status === 'published') {
+                    alert("Published Successfully! ID: " + result.id);
+                    // Redirect based on kind
+                    if (kind === 'text') window.location.href = 'twitter.html';
+                    else if (kind === 'article') window.location.href = 'tabnews.html';
+                    else if (kind === 'video') window.location.href = 'youtube.html';
+                }
+            } catch (e) {
+                alert("Publish Failed: " + e.message);
+                console.error(e);
+            }
+        }
+
+        async function signAndSend(kind, payloadObj) {
+            const auth = window.cromAuth;
+            const client = window.cromClient;
+
+            const timestamp = Math.floor(Date.now() / 1000);
+            const authorHex = auth.pubKeyHex;
+
+            // Canonical String Construction (Must match Backend!)
+            const canonical = `version:1|author:${authorHex}|kind:${kind}|timestamp:${timestamp}|payload:${JSON.stringify(payloadObj)}`;
+
+            const signature = auth.sign(canonical);
+
+            return await client.publish({
+                author_pubkey: authorHex,
+                kind: kind,
+                payload: payloadObj,
+                claimed_at: new Date().toISOString(), // Server parses this
+                signature: signature
+            });
+        }
+    </script>
+</body>
+
+</html>

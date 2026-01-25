@@ -1,102 +1,95 @@
-# Crom Social Protocol (Draft)
+# CROM - MEUEU NODE
+### The Social Protocol for the Free Web
 
-**Uma infraestrutura de rede social descentralizada, agnóstica a frontend e focada na soberania dos dados.**
+![License: AGPLv3](https://img.shields.io/badge/license-AGPLv3-blue.svg)
+![Docker](https://img.shields.io/badge/docker-ready-green.svg)
+![Status](https://img.shields.io/badge/status-active-success.svg)
 
-Este projeto ("meueu") é uma implementação de referência de um protocolo social onde o Backend serve como uma "Plataforma de Verdade" criptográfica e o Frontend é apenas uma das infinitas "Visões" possíveis sobre os dados.
-
-## 🚀 Filosofia
-
-*   **API First**: O produto é a API. O Frontend é apenas uma "skin".
-*   **Modularidade Extrema**: O Frontend define as regras de consulta/feed. O Backend é apenas um cofre burro e seguro.
-*   **Identidade Criptográfica**: Não há usuários/senhas. Tudo é assinado com chaves **Ed25519**.
-*   **Agnóstico a Mídia**: Um `Node` pode ser um texto, um vídeo, uma música ou uma interação.
+**Crom** is a decentralized social protocol where identity is cryptographic (Ed25519) and content is portable. **Meueu** is the reference implementation of a network node, featuring a multi-view frontend and robust governance tools.
 
 ---
 
-## 🛠️ Quick Start
+## 🚀 Quick Start (Docker)
+The fastest way to run your own node.
 
-### Pré-requisitos
-*   Go 1.22+
-*   Docker (para o PostgreSQL)
+### 1. Requirements
+- Docker & Docker Compose
+- `git`
 
-### 1. Iniciar o Ambiente
-Utilize o script de verificação que sobe o banco, migra as tabelas e compila tudo:
-
+### 2. Run
 ```bash
-./scripts/verify.sh
+git clone https://github.com/your-username/crom-meueu.git
+cd crom-meueu
+
+# Start the node (Background)
+docker-compose up -d
 ```
 
-Se preferir rodar manualmente as partes:
-```bash
-./scripts/start_db.sh     # Sobe o Postgres no Docker
-./bin/api                 # Roda a API na porta 8080
+### 3. Access
+- **Frontend**: [http://localhost:8080](http://localhost:8080)
+- **API**: [http://localhost:8080/v1/query](http://localhost:8080/v1/query)
+
+---
+
+## 🌌 User Guide
+The Meueu frontend offers multiple "Portals" to view the same underlying data:
+
+- **Micro-Blog (X-like)**: `/twitter.html` - Best for text updates.
+- **Vertical Feed (Tok-like)**: `/tiktok.html` - Immersive scrolling.
+- **Video Grid (Tube-like)**: `/youtube.html` - Content discovery.
+- **Tech News**: `/tabnews.html` - Dense, information-rich layout.
+
+*All portals share the same identity and content pool.*
+
+---
+
+## 👑 Admin Guide ("God Mode")
+This node includes a powerful Governance System for server operators.
+
+### 1. Become an Admin
+To access the Admin Dashboard, you need to set a `ADMIN_SECRET_HASH` in your environment.
+
+1. **Generate your Hash**:
+   Run the included utility script:
+   ```bash
+   ./scripts/gen_pass.sh "my_super_secret_password"
+   # Output example: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+   ```
+
+2. **Configure Node**:
+   Edit `docker-compose.yml` (or `.env`):
+   ```yaml
+   environment:
+     - ADMIN_SECRET_HASH=5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+     - SERVER_MODE=NORMAL # or WHITELIST
+   ```
+   Restart: `docker-compose up -d`
+
+3. **Login**:
+   Go to [http://localhost:8080/admin.html](http://localhost:8080/admin.html) and enter your password.
+
+### 2. Features
+- **Dashboard**: View real-time node statistics.
+- **Whitelist Mode**: If `SERVER_MODE=WHITELIST`, only keys added via the dashboard can post.
+- **Content Filter**: Ban specific words (e.g. spam, slurs) from being posted.
+
+---
+
+## 🛠️ Developers
+
+### SDK & Integration
+Build your own interfaces using our JavaScript SDK.
+- **Documentation**: [docs/frontend/GUIDE.md](docs/frontend/GUIDE.md)
+- **Source**: `frontend/js/sdk/`
+
+```javascript
+// Example
+const auth = new CromAuth();
+const pubKey = await auth.login("my seed phrase");
 ```
 
-### 2. Popular o Banco (Seeder)
-Para ver a rede social "viva", gere dados falsos:
+### License & Transparency
+This project is licensed under **AGPLv3**.
+> **Transparency Clause**: You cannot secretly modify the backend logic. If you modify the node code, you must inform users via the `/meta` endpoint or connection handshake.
 
-```bash
-go run scripts/seeder.go
-```
-*Gera ~30 posts variados (Vídeos, Textos, Artigos).*
-
-### 3. Acessar o Portal (Frontend)
-Abra o navegador em:
-
-👉 **http://localhost:8080/**
-
-Você verá o portal "Choose Your Reality", onde pode escolher navegar pelos dados como se estivesse no Twitter, TikTok, YouTube, etc.
-
----
-
-## 📂 Estrutura do Projeto
-
-### Backend (Go)
-*   **`cmd/api`**: Entrypoint do servidor HTTP.
-*   **`internal/core/domain`**: Modelos de dados (`Node`, `Filter`).
-*   **`internal/core/security`**: Validação de assinaturas Ed25519.
-*   **`internal/storage/postgres`**: Repositório e Query Builder dinâmico.
-*   **`db/migrations`**: Scripts SQL versionados.
-
-### Frontend (Vanilla JS)
-*   **`frontend/index.html`**: Portal inicial.
-*   **`frontend/*.html`**: Vistas especializadas (TikTok, Twitter, etc).
-*   **`frontend/js/api.js`**: Cliente da API `POST /v1/query`.
-
-### Ferramentas (`scripts/`)
-*   **`verify.sh`**: Automação de CI/CD local.
-*   **`publish_client.go`**: CLI para postar conteúdo assinado manualmente.
-*   **`seeder.go`**: Gerador de massa de dados.
-
----
-
-## 🔌 API Endpoints
-
-### `POST /v1/publish`
-Publica um novo conteúdo. Requer payload assinado.
-*   **Body**: JSON com `author_pubkey`, `signature`, `payload`, etc.
-*   **Segurança**: Verifica assinatura Ed25519 sobre a string canônica.
-
-### `POST /v1/query`
-Busca flexível estilo banco de dados.
-*   **Body**:
-    ```json
-    {
-      "filters": {
-        "kinds": ["video", "text"],
-        "authors": ["..."],
-        "tags": ["tech"]
-      },
-      "limit": 20
-    }
-    ```
-
----
-
-## 📜 Documentação Completa
-Veja a pasta `docs/` para detalhes arquiteturais:
-*   [01-VISION.md](docs/01-VISION.md)
-*   [02-ARCHITECTURE.md](docs/02-ARCHITECTURE.md)
-*   [03-PROTOCOL_API.md](docs/03-PROTOCOL_API.md)
-*   [04-SECURITY_IMPORT.md](docs/04-SECURITY_IMPORT.md)
-*   [05-DATABASE.md](docs/05-DATABASE.md)
+See [LICENSE](LICENSE) for full details.

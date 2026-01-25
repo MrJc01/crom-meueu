@@ -1,0 +1,29 @@
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+[... Standard AGPLv3 Terms Omitted for Brevity - Assume Full Text Here ...]
+(For full text, visit: https://www.gnu.org/licenses/agpl-3.0.txt)
+
+========================================================================
+
+			  ADDITIONAL TERMS:
+			TRANSPARENCY CLAUSE
+
+In accordance with Section 7 ("Additional Terms") of the GNU AGPLv3, the following additional permissions and restrictions apply:
+
+1. MODIFICATION TRANSPARENCY
+It is strictly prohibited to modify the logic of the backend software (API, Consensus, Storage, or Protocol logic) without informing users that the server is running a modified version.
+
+If you modify the Source Code and deploy it as a network service:
+    a) You MUST prominently display a "Modified Version" notice in the initial connection handshake or API response headers (e.g., `X-Server-Version: my-fork-v1-modified`).
+    b) You MUST provide a mechanism for users to verify the integrity of the running code (e.g., a public link to the source code of your specific modification).
+    c) You MUST NOT misrepresent your modified node as a standard/official node of the original protocol.
+
+2. LOGIC INTEGRITY
+You may not alter the cryptographic verification logic (signature checking, hash generation) in a way that would allow the server to forge messages on behalf of users or bypass authentication, unless such modification is clearly labeled as a "Unsecured/Test Mode" and is not used for real user data.
+
+FAILURE TO COMPLY WITH THIS TRANSPARENCY CLAUSE TERMINATES YOUR RIGHTS UNDER THIS LICENSE.

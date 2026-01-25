@@ -1,8 +1,8 @@
 // Encrypted Direct Messages Logic
 
 class DMManager {
-    constructor() {
-        this.im = window.identityManager;
+    get im() {
+        return window.cromAuth || window.identityManager;
     }
 
     // Send an Encrypted DM
@@ -14,7 +14,7 @@ class DMManager {
 
         try {
             // New High-Level API from IdentityManager
-            const encryptedData = this.im.encryptDirectMessage(recipientPubHex, textContent);
+            const encryptedData = this.im.encryptDM(recipientPubHex, textContent);
 
             // 2. Wrap in JSON Payload
             const encryptedPayload = {
@@ -101,7 +101,7 @@ class DMManager {
         try {
             const payload = node.payload;
 
-            const content = this.im.decryptDirectMessage(
+            const content = this.im.decryptDM(
                 node.author_pubkey,
                 payload.ciphertext,
                 payload.nonce

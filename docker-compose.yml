@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: crom_node
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://crom:crom_secret@db:5432/crom_db?sslmode=disable
+      - SERVER_MODE=NORMAL # Options: NORMAL, WHITELIST
+      # - ADMIN_SECRET_HASH=... (Set this in .env)
+    depends_on:
+      - db
+    networks:
+      - crom_net
+
+  db:
+    image: postgres:15-alpine
+    container_name: crom_db
+    restart: always
+    environment:
+      POSTGRES_USER: crom
+      POSTGRES_PASSWORD: crom_secret
+      POSTGRES_DB: crom_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - crom_net
+    ports:
+      - "5432:5432" # Optional: Expose DB for local dev
+
+networks:
+  crom_net:
+    driver: bridge
+
+volumes:
+  postgres_data:

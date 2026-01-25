@@ -1,11 +1,25 @@
 // Login UI Manager
+// Uses SDK: CromAuth
+
+// Initialize SDK immediately to avoid race conditions
+if (!window.cromAuth) {
+    window.cromAuth = new CromAuth();
+}
+window.identityManager = window.cromAuth; // Backwards compatibility
 
 document.addEventListener('DOMContentLoaded', async () => {
+
     injectLoginModal();
 
-    // Auto-login check
-    if (window.identityManager) {
-        await window.identityManager.checkSession();
+    // Check Session (custom implementation for now, or add to SDK?)
+    // The SDK example `CromAuth` didn't explicitly have persistence, let's keep it here or check it.
+    // The original `crypto_auth.js` had session logic.
+    // Let's implement basic session usage here using the SDK methods.
+
+    // Check if we have a stored session
+    const stored = JSON.parse(sessionStorage.getItem('crom_identity'));
+    if (stored && stored.seed) {
+        await window.cromAuth.login(stored.seed);
         updateAuthUI();
     }
 });
@@ -37,18 +51,26 @@ function injectLoginModal() {
     document.getElementById('login-btn').onclick = async () => {
         const seed = document.getElementById('seed-input').value;
         if (!seed) return alert("Please enter a seed");
-        await window.identityManager.login(seed);
+
+        await window.cromAuth.login(seed);
+
+        // Persist (unsafe but standard for this POC)
+        sessionStorage.setItem('crom_identity', JSON.stringify({
+            pubKey: window.cromAuth.pubKeyHex,
+            seed: seed
+        }));
+
         div.style.display = 'none';
         updateAuthUI();
     };
 
     document.getElementById('gen-btn').onclick = () => {
-        // Generate random seed (simple version)
+        // Generate random seed
         const randomBytes = new Uint8Array(32);
         crypto.getRandomValues(randomBytes);
         const seed = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
         document.getElementById('seed-input').value = seed;
-        document.getElementById('seed-input').type = "text"; // Show it
+        document.getElementById('seed-input').type = "text";
         alert("This is your NEW Identity Key. Save it somewhere safe!");
     };
 
@@ -62,14 +84,14 @@ function showLogin() {
 }
 
 function updateAuthUI() {
-    const im = window.identityManager;
+    const auth = window.cromAuth;
     const nav = document.querySelector('.bottom-nav') || document.body;
 
     // Remove existing badge
     const existing = document.getElementById('auth-badge');
     if (existing) existing.remove();
 
-    if (im.pubKeyHex) {
+    if (auth.pubKeyHex) {
         const badge = document.createElement('div');
         badge.id = 'auth-badge';
         badge.style.cssText = `
@@ -79,9 +101,12 @@ function updateAuthUI() {
             font-size: 12px; font-weight: bold; cursor: pointer;
             backdrop-filter: blur(5px); z-index: 1000;
         `;
-        badge.innerHTML = `Ident: @${im.pubKeyHex.substring(0, 6)}...`;
+        badge.innerHTML = `Ident: @${auth.pubKeyHex.substring(0, 6)}...`;
         badge.onclick = () => {
-            if (confirm("Logout?")) im.logout();
+            if (confirm("Logout?")) {
+                sessionStorage.removeItem('crom_identity');
+                window.location.reload();
+            }
         };
         document.body.appendChild(badge);
     } else {
