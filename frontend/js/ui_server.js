@@ -2,7 +2,7 @@
 
 class ServerManager {
     constructor() {
-        this.defaultServer = "http://localhost:8080";
+        this.defaultServer = "https://meueu.crom.run";
         this.currentServer = localStorage.getItem('crom_server') || this.defaultServer;
         console.log("🌍 Crom Network: Connected to " + this.currentServer);
     }
@@ -63,7 +63,7 @@ class ServerManager {
                 
                 <button id="save-server" style="width:100%; padding:10px; background:#00d2ff; border:none; border-radius:4px; font-weight:bold; cursor:pointer">Connect</button>
                 <div style="margin-top:10px; display:flex; gap:10px">
-                    <button id="preset-local" style="flex:1; padding:5px; background:#333; border:none; color:white; border-radius:4px; cursor:pointer">Localhost</button>
+                    <button id="preset-local" style="flex:1; padding:5px; background:#333; border:none; color:white; border-radius:4px; cursor:pointer">Default Cloud</button>
                     <button id="close-server" style="flex:1; padding:5px; background:none; border:1px solid #444; color:#888; border-radius:4px; cursor:pointer">Cancel</button>
                 </div>
             </div>
@@ -75,7 +75,7 @@ class ServerManager {
         };
 
         document.getElementById('preset-local').onclick = () => {
-            this.setServer("http://localhost:8080");
+            this.setServer("https://meueu.crom.run");
         };
 
         document.getElementById('close-server').onclick = () => modal.remove();
