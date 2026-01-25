@@ -28,8 +28,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - crom_net
-    ports:
-      - "5433:5432" # Changed to 5433 to avoid conflict with host Postgres
+    # ports:
+    #   - "5433:5432" # Disabled to avoid host conflicts on VPS
 
 networks:
   crom_net:
