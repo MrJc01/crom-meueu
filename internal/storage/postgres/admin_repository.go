@@ -77,6 +77,7 @@ func (r *AdminRepository) GetBannedWords(ctx context.Context) ([]string, error) 
 
 // ...
 
+// GetBannedUsers retrieves the list of all banned public keys from the database.
 func (r *AdminRepository) GetBannedUsers(ctx context.Context) ([]string, error) {
 	rows, err := r.pool.Query(ctx, "SELECT public_key FROM banned_users ORDER BY created_at DESC")
 	if err != nil {
