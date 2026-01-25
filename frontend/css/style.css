@@ -1,0 +1,218 @@
+/* Modern Glassmorphism Theme */
+:root {
+    --bg-color: #0f0c29;
+    --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    --text-color: #ffffff;
+    --text-secondary: #a0a0a0;
+    --accent-color: #00d2ff;
+    --accent-gradient: linear-gradient(to right, #00d2ff, #3a7bd5);
+
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --backdrop-blur: 10px;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    /* Parallax effect */
+    color: var(--text-color);
+    min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 20px 80px 20px;
+    /* Bottom padding for Nav */
+}
+
+h1,
+h2 {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+    letter-spacing: -1px;
+}
+
+/* Card Styling (Glass) */
+.node-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    padding: 20px;
+    margin-bottom: 25px;
+    border-radius: 16px;
+    backdrop-filter: blur(var(--backdrop-blur));
+    box-shadow: var(--glass-shadow);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.node-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.node-meta {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.node-content {
+    font-size: 1.1em;
+    line-height: 1.6;
+    color: #e0e0e0;
+}
+
+/* Navigation Bar */
+.bottom-nav {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 12, 41, 0.85);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    padding: 10px 20px;
+    border-radius: 50px;
+    display: flex;
+    gap: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.nav-item {
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    padding: 10px;
+    border-radius: 50%;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-item:hover,
+.nav-item.active {
+    color: #fff;
+    background: var(--accent-gradient);
+    transform: scale(1.1);
+}
+
+/* Portal Grid (Index) */
+.portal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+    margin-top: 50px;
+}
+
+.portal-card {
+    text-decoration: none;
+    color: white;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    padding: 40px;
+    text-align: center;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+}
+
+.portal-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.03);
+    border-color: var(--accent-color);
+}
+
+.portal-icon {
+    font-size: 4em;
+    display: block;
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+/* TabNews Style Specifics */
+.tab-item {
+    padding: 15px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.tab-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.tab-index {
+    color: var(--accent-color);
+    font-weight: bold;
+    min-width: 30px;
+}
+
+.tab-title {
+    color: var(--text-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+/* TikTok Feed */
+.tiktok-feed {
+    height: 100vh;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    background: #000;
+}
+
+.tiktok-card {
+    height: 100vh;
+    width: 100vw;
+    scroll-snap-align: start;
+    position: relative;
+    border: none;
+    background: #000;
+}
+
+.tiktok-card video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Fill screen */
+}
+
+.tiktok-overlay {
+    position: absolute;
+    bottom: 100px;
+    /* Above nav bar */
+    left: 20px;
+    right: 20px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.tiktok-nav {
+    /* Override nav for tiktok to be on top of video */
+    background: rgba(0, 0, 0, 0.6) !important;
+}.btn-disabled { opacity: 0.4; pointer-events: none; cursor: default; filter: grayscale(100%); }

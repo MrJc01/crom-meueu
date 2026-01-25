@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Profile Identity</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .profile-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding-top: 50px;
+        }
+
+        .profile-header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .profile-avi {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            border: 4px solid var(--accent-color);
+            background: #444;
+        }
+
+        .pubkey-badge {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-family: monospace;
+            color: var(--text-secondary);
+            font-size: 14px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .trust-score {
+            font-size: 20px;
+            font-weight: bold;
+            color: #00ff41;
+            margin-bottom: 20px;
+        }
+
+        .action-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .action-btn {
+            background: var(--accent-gradient);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .feed-section h3 {
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container profile-container">
+        <div id="profile-content">
+            Loading Profile...
+        </div>
+
+        <div class="feed-section">
+            <h3>Recent Activity</h3>
+            <div id="user-feed"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/lib/nacl.min.js"></script>
+    <script src="js/lib/nacl-util.min.js"></script>
+    <script src="js/lib/ed2curve.min.js"></script>
+    <script src="js/crypto_auth.js"></script>
+    <script src="js/ui_login.js"></script>
+    <script src="js/ui_dm.js"></script>
+    <script src="js/ui_server.js"></script>
+    <script src="js/api.js"></script>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const pubkey = params.get('pubkey');
+
+        if (!pubkey) {
+            document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px'>No Identity Specified</h1>";
+            throw new Error("No pubkey");
+        }
+
+        // Render Header
+        const hue = parseInt(pubkey.substring(0, 2), 16);
+        const trust = Math.floor(Math.random() * 100);
+
+        document.getElementById('profile-content').innerHTML = `
+            <div class="profile-header">
+                <div class="profile-avi" style="background: hsl(${hue}, 60%, 50%)"></div>
+                <h1>Identity ${pubkey.substring(0, 8)}</h1>
+                <div class="pubkey-badge">${pubkey}</div>
+                <div class="trust-score">🛡️ Trust Score: ${trust}/100</div>
+                
+                <div class="action-row">
+                    <a href="chat.html?peer=${pubkey}" class="action-btn">💬 Send Message</a>
+                    <button class="action-btn" style="background:rgba(255,255,255,0.1)">Copy Key</button>
+                    ${pubkey === window.identityManager.pubKeyHex ? '<button class="action-btn" style="background:red">Edit Profile</button>' : ''}
+                </div>
+            </div>
+        `;
+
+        // Fetch User Feed
+        fetchNodes({ authors: [pubkey] }).then(nodes => {
+            const feed = document.getElementById('user-feed');
+            if (nodes.length === 0) {
+                feed.innerHTML = "<div style='text-align:center; color:#666'>No public activity recorded.</div>";
+                return;
+            }
+
+            nodes.forEach(node => {
+                const div = document.createElement('div');
+                div.className = 'node-card';
+                div.onclick = () => {
+                    if (node.kind === 'video') window.location.href = `watch.html?id=${node.id}`;
+                    else window.location.href = `thread.html?id=${node.id}`;
+                };
+
+                let content = node.payload.title || node.payload.content || node.payload.text || "Content";
+                div.innerHTML = `
+                    <div class="node-meta">
+                        <span>${node.kind.toUpperCase()}</span>
+                        <span>${new Date(node.claimed_at).toLocaleDateString()}</span>
+                    </div>
+                    <div class="node-content">${content}</div>
+                `;
+                feed.appendChild(div);
+            });
+        });
+    </script>
+</body>
+
+</html>

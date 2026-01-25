@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Tok Clone</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* TikTok Specifics */
+        body.tiktok-mode {
+            background: black;
+        }
+
+        .tiktok-feed {
+            background: black;
+        }
+
+        .action-bar-right {
+            position: absolute;
+            right: 10px;
+            bottom: 120px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+        }
+
+        .action-icon {
+            font-size: 35px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 5px;
+            transition: transform 0.2s;
+        }
+
+        .action-icon:active {
+            transform: scale(0.9);
+        }
+
+        .action-count {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .profile-avi {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid white;
+            margin-bottom: 20px;
+        }
+
+        .sound-marquee {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .disc-anim {
+            width: 50px;
+            height: 50px;
+            background: #222;
+            border-radius: 50%;
+            position: absolute;
+            right: 10px;
+            bottom: 30px;
+            border: 8px solid #111;
+            animation: spin 4s linear infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .disc-anim img {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="tiktok-mode">
+    <div id="feed" class="tiktok-feed">
+        <!-- Content Injected Here -->
+    </div>
+
+    <script src="js/lib/nacl.min.js"></script>
+    <script src="js/lib/nacl-util.min.js"></script>
+    <script src="js/lib/ed2curve.min.js"></script>
+    <script src="js/crypto_auth.js"></script>
+    <script src="js/ui_login.js"></script>
+    <script src="js/ui_dm.js"></script>
+    <script src="js/ui_server.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        fetchNodes({ kinds: ["video"] }).then(nodes => {
+            const feed = document.getElementById('feed');
+            feed.innerHTML = '';
+
+            nodes.forEach(node => {
+                const div = document.createElement('div');
+                div.className = 'tiktok-card';
+                const videoUrl = node.payload.url || "https://www.w3schools.com/html/mov_bbb.mp4";
+                const hue = parseInt(node.author_pubkey.substring(0, 2), 16);
+
+                div.innerHTML = `
+                    <video src="${videoUrl}" loop muted onclick="this.paused ? this.play() : this.pause()"></video>
+                    
+                    <div class="tiktok-overlay">
+                        <a href="profile.html?pubkey=${node.author_pubkey}" style="text-decoration:none; color:white">
+                            <div style="font-weight:700; font-size:18px; margin-bottom:10px">@user${node.author_pubkey.substring(0, 6)}</div>
+                        </a>
+                        <div style="font-size:15px; width: 80%; line-height:1.4">${node.payload.title || "Watching this awesome decentralized video!"} #crom #web3</div>
+                        <div class="sound-marquee">
+                            <span>🎵 Original Sound - @user${node.author_pubkey.substring(0, 4)}</span>
+                        </div>
+                    </div>
+
+                    <div class="action-bar-right">
+                        <div class="profile-avi" style="background: hsl(${hue}, 70%, 50%)"></div>
+                        
+                        <div class="action-btn btn-disabled">
+                            <span class="action-icon">❤️</span>
+                            <span class="action-count">0</span>
+                        </div>
+                        <div class="action-btn btn-disabled">
+                            <span class="action-icon">💬</span>
+                            <span class="action-count">0</span>
+                        </div>
+                        <div class="action-btn btn-disabled">
+                            <span class="action-icon">↪️</span>
+                            <span class="action-count">Share</span>
+                        </div>
+                    </div>
+
+                    <div class="disc-anim">
+                        <div style="background:white; width:20px; height:20px; border-radius:50%"></div>
+                    </div>
+                `;
+
+                // Intersection Observer for Auto-Play
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        const vid = entry.target.querySelector('video');
+                        if (entry.isIntersecting) {
+                            vid.play().catch(e => { }); // Auto-play if allowed
+                        } else {
+                            vid.pause();
+                            vid.currentTime = 0;
+                        }
+                    });
+                }, { threshold: 0.6 });
+
+                observer.observe(div);
+                feed.appendChild(div);
+            });
+        });
+    </script>
+</body>
+
+</html>

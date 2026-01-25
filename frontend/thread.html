@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Post Detail</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .thread-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding-top: 40px;
+        }
+
+        .main-post {
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .author-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .avi-lg {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #555;
+        }
+
+        .author-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+
+        .author-handle {
+            color: var(--text-secondary);
+        }
+
+        .post-body {
+            font-size: 22px;
+            line-height: 1.5;
+            color: var(--text-color);
+            margin-bottom: 20px;
+        }
+
+        .post-meta {
+            color: var(--text-secondary);
+            font-size: 15px;
+            padding: 15px 0;
+            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .comments-section h3 {
+            margin-bottom: 20px;
+        }
+
+        .comment {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container thread-container">
+        <div id="main-content">
+            Loading...
+        </div>
+
+        <div class="comments-section">
+            <h3>Replies</h3>
+            <!-- Fake Comments -->
+            <div class="comment">
+                <div class="avi-lg" style="width:40px; height:40px; background:#444"></div>
+                <div>
+                    <div style="font-weight:700; margin-bottom:5px">Random User</div>
+                    <div style="color:#ccc">This is decentralized? Mind blown. 🤯</div>
+                </div>
+            </div>
+            <div class="comment">
+                <div class="avi-lg" style="width:40px; height:40px; background:#666"></div>
+                <div>
+                    <div style="font-weight:700; margin-bottom:5px">Dev Bot</div>
+                    <div style="color:#ccc">Great content! Thanks for sharing.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/ui_server.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const nodeId = params.get('id');
+
+        if (!nodeId) history.back();
+
+        fetchNodes({ ids: [nodeId] }).then(nodes => {
+            if (nodes.length === 0) return;
+            const node = nodes[0];
+            const main = document.getElementById('main-content');
+            const hue = parseInt(node.author_pubkey.substring(0, 2), 16);
+
+            let content = node.payload.content || node.payload.text || node.payload.title;
+
+            // Render HTML if article
+            if (node.kind === 'article') {
+                content = `<h1>${node.payload.title}</h1><p>${node.payload.content}</p>`;
+            }
+
+            main.innerHTML = `
+                 <div class="main-post">
+                    <div class="author-row">
+                        <div class="avi-lg" style="background: hsl(${hue}, 60%, 50%)"></div>
+                        <div>
+                             <div class="author-name">User ${node.author_pubkey.substring(0, 6)}</div>
+                             <div class="author-handle">@${node.author_pubkey}</div>
+                        </div>
+                    </div>
+                    <div class="post-body">
+                        ${content}
+                    </div>
+                    <div class="post-meta">
+                        ${new Date(node.claimed_at).toLocaleTimeString()} · ${new Date(node.claimed_at).toLocaleDateString()} · Crom Protocol
+                    </div>
+                 </div>
+            `;
+        });
+    </script>
+</body>
+
+</html>

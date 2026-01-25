@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Secure Inbox</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .inbox-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding-top: 50px;
+        }
+
+        .dm-card {
+            background: rgba(0, 255, 65, 0.05);
+            /* Hacker Green Tint */
+            border: 1px solid #00ff41;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .dm-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+            padding-bottom: 10px;
+        }
+
+        .sender-badge {
+            background: #00ff41;
+            color: black;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .dm-content {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            white-space: pre-wrap;
+        }
+
+        .locked-msg {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        /* Compose Box */
+        .compose-box {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            border: 1px solid #333;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            background: #111;
+            border: 1px solid #333;
+            color: white;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        button {
+            background: #00d2ff;
+            border: none;
+            padding: 10px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container inbox-container">
+        <h1>🔐 Secure Inbox (E2EE)</h1>
+
+        <div class="compose-box">
+            <h3>Send Encrypted Message</h3>
+            <input type="text" id="recipient" placeholder="Recipient Public Key (Hex)">
+            <textarea id="message" rows="3" placeholder="Secret Message..."></textarea>
+            <button onclick="send()">Encrypt & Send 🚀</button>
+        </div>
+
+        <div id="inbox-list">
+            <div class="locked-msg">Checking Identity...</div>
+        </div>
+    </div>
+
+    <!-- Security Libs -->
+    <script src="js/lib/nacl.min.js"></script>
+    <script src="js/lib/nacl-util.min.js"></script>
+    <script src="js/lib/ed2curve.min.js"></script>
+    <script src="js/crypto_auth.js"></script>
+    <script src="js/ui_login.js"></script>
+    <script src="js/ui_dm.js"></script>
+    <script src="js/ui_server.js"></script>
+    <script src="js/api.js"></script>
+
+    <script>
+        async function loadInbox() {
+            const im = window.identityManager;
+            const list = document.getElementById('inbox-list');
+
+            // Wait for auth
+            if (!im.keyPair) {
+                await new Promise(r => setTimeout(r, 1000)); // Simple wait
+                if (!im.keyPair) {
+                    list.innerHTML = '<div class="locked-msg">🔒 Please Login to decrypt your messages.</div>';
+                    return;
+                }
+            }
+
+            list.innerHTML = '<div>Decorrupting Signal... 📡</div>';
+
+            const msgs = await window.dmManager.fetchInbox();
+
+            if (msgs.length === 0) {
+                list.innerHTML = '<div class="locked-msg">No encrypted messages found for you.</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            msgs.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'dm-card';
+                div.innerHTML = `
+                    <div class="dm-header">
+                        <div>From: <span class="sender-badge">${msg.sender.substring(0, 8)}...</span></div>
+                        <div style="font-size:12px; color:#888">${new Date(msg.sent_at).toLocaleString()}</div>
+                    </div>
+                    <div class="dm-content">${msg.content}</div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        async function send() {
+            const recip = document.getElementById('recipient').value.trim();
+            const text = document.getElementById('message').value;
+
+            if (!recip || !text) return alert("Fill all fields");
+
+            const success = await window.dmManager.sendDM(recip, text);
+            if (success) {
+                document.getElementById('message').value = '';
+                // Optional: add to list? No simple way to read sent messages yet without search
+            }
+        }
+
+        // Init
+        setTimeout(loadInbox, 500);
+    </script>
+</body>
+
+</html>

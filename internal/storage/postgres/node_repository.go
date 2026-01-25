@@ -1,0 +1,129 @@
+package postgres
+
+import (
+	"context"
+	"fmt"
+
+	"meueu/internal/core/domain"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type NodeRepository struct {
+	pool *pgxpool.Pool
+}
+
+func NewNodeRepository(pool *pgxpool.Pool) *NodeRepository {
+	return &NodeRepository{pool: pool}
+}
+
+func (r *NodeRepository) Create(ctx context.Context, node *domain.Node) error {
+	query := `
+		INSERT INTO nodes (
+			id, parent_id, author_pubkey, kind, payload, tags, 
+			signature, claimed_at, verified_at, origin_server
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, 
+			$7, $8, NOW(), $9
+		)
+	`
+
+	_, err := r.pool.Exec(ctx, query,
+		node.ID,
+		node.ParentID,
+		node.AuthorPubkey,
+		node.Kind,
+		node.Payload,
+		node.Tags,
+		node.Signature,
+		node.ClaimedAt,
+		node.OriginServer,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert node: %w", err)
+	}
+
+	return nil
+}
+
+func (r *NodeRepository) Query(ctx context.Context, filter domain.NodeFilter, limit, offset int) ([]*domain.Node, error) {
+	// Base Query
+	query := `SELECT 
+		id, parent_id, author_pubkey, kind, payload, tags, 
+		signature, claimed_at, verified_at, origin_server
+	FROM nodes WHERE 1=1`
+
+	args := []interface{}{}
+	argCounter := 1
+
+	// Dynamic Filters
+	if len(filter.IDs) > 0 {
+		query += fmt.Sprintf(" AND id = ANY($%d)", argCounter)
+		args = append(args, filter.IDs)
+		argCounter++
+	}
+
+	if len(filter.Kinds) > 0 {
+		query += fmt.Sprintf(" AND kind = ANY($%d)", argCounter)
+		args = append(args, filter.Kinds)
+		argCounter++
+	}
+
+	if len(filter.Authors) > 0 {
+		query += fmt.Sprintf(" AND author_pubkey = ANY($%d)", argCounter)
+		args = append(args, filter.Authors)
+		argCounter++
+	}
+
+	if len(filter.Tags) > 0 {
+		// Uses Postgres JSONB operator ?| (exists any)
+		query += fmt.Sprintf(" AND tags ?| $%d", argCounter)
+		args = append(args, filter.Tags)
+		argCounter++
+	}
+
+	// Ordering and Pagination
+	query += " ORDER BY claimed_at DESC"
+
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argCounter)
+		args = append(args, limit)
+		argCounter++
+	}
+
+	if offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argCounter)
+		args = append(args, offset)
+		argCounter++
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var nodes []*domain.Node
+	for rows.Next() {
+		node := &domain.Node{}
+		err := rows.Scan(
+			&node.ID,
+			&node.ParentID,
+			&node.AuthorPubkey,
+			&node.Kind,
+			&node.Payload,
+			&node.Tags,
+			&node.Signature,
+			&node.ClaimedAt,
+			&node.VerifiedAt,
+			&node.OriginServer,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan failed: %w", err)
+		}
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
+}

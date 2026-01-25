@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>TabNews Clone</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* TabNews Specifics */
+        body {
+            background: #24292f !important;
+            font-family: 'SF Mono', 'Segoe UI Mono', 'Roboto Mono', monospace;
+            background-image: none !important;
+        }
+
+        .container {
+            max-width: 960px;
+            padding-top: 20px;
+        }
+
+        .tn-header {
+            background: #24292f;
+            padding: 15px 0;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #3b424b;
+        }
+
+        .tn-logo {
+            background: #2da44e;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: 700;
+            margin-right: 20px;
+        }
+
+        .tn-item {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #3b424b;
+            align-items: baseline;
+        }
+
+        .tn-index {
+            width: 30px;
+            text-align: right;
+            margin-right: 15px;
+            color: #6e7681;
+            font-size: 16px;
+        }
+
+        .tn-content {
+            flex: 1;
+        }
+
+        .tn-title {
+            font-size: 16px;
+            color: #d0d7de;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .tn-meta {
+            font-size: 12px;
+            color: #8b949e;
+            margin-top: 4px;
+        }
+
+        .tn-badge {
+            background: #3b424b;
+            color: #8b949e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="tn-header">
+            <div class="tn-logo">TabNews</div>
+            <div style="color: #d0d7de; font-size:14px; display:flex; gap:20px;">
+                <span>Relevantes</span>
+                <span>Recentes</span>
+            </div>
+        </header>
+
+        <div id="feed">
+            <!-- Content -->
+        </div>
+    </div>
+
+    <script src="js/ui_server.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        fetchNodes({ kinds: ["text", "article"] }).then(nodes => {
+            const feed = document.getElementById('feed');
+            feed.innerHTML = '';
+
+            nodes.forEach((node, idx) => {
+                const div = document.createElement('div');
+                div.className = 'tn-item';
+                div.innerHTML = `
+                    <div class="tn-index">${idx + 1}.</div>
+                    <div class="tn-content">
+                        <a href="thread.html?id=${node.id}" class="tn-title">${node.payload.title || node.payload.content.substring(0, 80) + "..."}</a>
+                        ${node.kind === 'article' ? '<span class="tn-badge">Artigo</span>' : ''}
+                        <div class="tn-meta">
+                            ${Math.floor(Math.random() * 100)} tabcoins • 
+                            ${Math.floor(Math.random() * 20)} comentários • 
+                            @${node.author_pubkey.substring(0, 8)} • 
+                            ${getTimeAgo(node.claimed_at)}
+                        </div>
+                    </div>
+                `;
+                feed.appendChild(div);
+            });
+        });
+
+        function getTimeAgo(dateString) {
+            const diff = (new Date() - new Date(dateString)) / 1000;
+            if (diff < 3600) return Math.floor(diff / 60) + "m atrás";
+            return Math.floor(diff / 3600) + "h atrás";
+        }
+    </script>
+</body>
+
+</html>

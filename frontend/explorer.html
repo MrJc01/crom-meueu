@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Crom Node Explorer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .explorer-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .tool-bar {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        select,
+        button {
+            padding: 8px 15px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            background: #222;
+            color: white;
+            cursor: pointer;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            color: #888;
+            border-bottom: 1px solid #333;
+            padding: 10px;
+        }
+
+        td {
+            border-bottom: 1px solid #222;
+            padding: 10px;
+            color: #ccc;
+        }
+
+        .row-kind {
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #333;
+            color: white;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .kind-encrypted_dm {
+            background: #00ff41;
+            color: black;
+        }
+
+        .kind-video {
+            background: #ff0050;
+            color: white;
+        }
+
+        .kind-text {
+            background: #1d9bf0;
+            color: white;
+        }
+
+        .json-preview {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container explorer-container">
+        <h1>🔍 Node Explorer</h1>
+        <p>Raw inspection of the local Crom Node database.</p>
+
+        <div class="tool-bar">
+            <select id="kind-filter">
+                <option value="">All Kinds</option>
+                <option value="text">Text (Twitter)</option>
+                <option value="video">Video (YouTube/TikTok)</option>
+                <option value="article">Article (News)</option>
+                <option value="encrypted_dm">Encrypted DM</option>
+            </select>
+            <button onclick="refresh()">Refresh Data</button>
+            <span id="status" style="color:#666; margin-left:auto">Waiting...</span>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Kind</th>
+                    <th>ID</th>
+                    <th>Author</th>
+                    <th>Time</th>
+                    <th>Payload Preview</th>
+                </tr>
+            </thead>
+            <tbody id="node-rows">
+                <!-- Rows -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="js/ui_server.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        async function refresh() {
+            const list = document.getElementById('node-rows');
+            const status = document.getElementById('status');
+            const kind = document.getElementById('kind-filter').value;
+
+            list.innerHTML = '<tr><td colspan="5" style="text-align:center">Fetching nodes...</td></tr>';
+
+            const filters = {};
+            if (kind) filters.kinds = [kind];
+
+            try {
+                const nodes = await fetchNodes(filters);
+                status.innerText = `${nodes.length} nodes found`;
+
+                list.innerHTML = '';
+                nodes.forEach(node => {
+                    const tr = document.createElement('tr');
+
+                    const payloadStr = JSON.stringify(node.payload);
+
+                    tr.innerHTML = `
+                        <td><span class="row-kind kind-${node.kind}">${node.kind}</span></td>
+                        <td>${node.id.substring(0, 8)}...</td>
+                        <td>
+                            <a href="profile.html?pubkey=${node.author_pubkey}" style="color:#00d2ff; text-decoration:none">
+                                ${node.author_pubkey.substring(0, 8)}...
+                            </a>
+                        </td>
+                        <td>${new Date(node.claimed_at).toLocaleString()}</td>
+                        <td><div class="json-preview" title="${payloadStr.replace(/"/g, '&quot;')}">${payloadStr}</div></td>
+                    `;
+                    list.appendChild(tr);
+                });
+            } catch (e) {
+                list.innerHTML = `<tr><td colspan="5" style="color:red">Error: ${e.message}</td></tr>`;
+            }
+        }
+
+        document.getElementById('kind-filter').onchange = refresh;
+
+        // Init
+        refresh();
+    </script>
+</body>
+
+</html>
