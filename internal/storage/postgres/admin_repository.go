@@ -155,24 +155,6 @@ func (r *AdminRepository) UnbanUser(ctx context.Context, pubKey string) error {
 	return err
 }
 
-func (r *AdminRepository) GetBannedUsers(ctx context.Context) ([]string, error) {
-	rows, err := r.pool.Query(ctx, "SELECT public_key FROM banned_users ORDER BY created_at DESC")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	keys := []string{}
-	for rows.Next() {
-		var key string
-		if err := rows.Scan(&key); err != nil {
-			return nil, err
-		}
-		keys = append(keys, key)
-	}
-	return keys, nil
-}
-
 // --- Content Moderation ---
 
 func (r *AdminRepository) DeleteNode(ctx context.Context, nodeID string) error {
