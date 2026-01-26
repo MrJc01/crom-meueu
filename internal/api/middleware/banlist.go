@@ -1,9 +1,6 @@
 package middleware
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
 	"net/http"
 
 	"meueu/internal/storage/postgres"
@@ -19,37 +16,34 @@ func NewBanlistMiddleware(repo *postgres.AdminRepository) *BanlistMiddleware {
 
 func (m *BanlistMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		// Only check banlist for POST/PUT methods where we accept data
+		if r.Method != http.MethodPost && r.Method != http.MethodPut {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		bodyBytes, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Failed to read body", http.StatusInternalServerError)
-			return
-		}
-		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		// Security Optimization: Read Author Key from Header to avoid reading Body (DoS mitigation)
+		authorPubkey := r.Header.Get("X-MeuEu-Author")
 
-		var req struct {
-			AuthorPubkey string `json:"author_pubkey"`
-		}
-		if err := json.Unmarshal(bodyBytes, &req); err != nil {
-			// Malformed JSON (or different endpoint structure). Skip check or fail?
-			// Since this is a global security middleware, better to be permissive IF it's not a node publish?
-			// But this is attached to /publish.
-			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		if authorPubkey == "" {
+			// Strict Mode: Require the header.
+			// This forces clients to upgrade but protects against large body attacks.
+			http.Error(w, "Missing X-MeuEu-Author header", http.StatusBadRequest)
 			return
 		}
 
-		if req.AuthorPubkey == "" {
-			http.Error(w, "Missing author_pubkey", http.StatusBadRequest)
+		// Basic format validation (hex string of 32 bytes = 64 chars)
+		if len(authorPubkey) != 64 {
+			http.Error(w, "Invalid X-MeuEu-Author header format", http.StatusBadRequest)
 			return
 		}
 
 		// Check Ban with Repository
-		isBanned, err := m.repo.IsBannedUser(r.Context(), req.AuthorPubkey)
+		isBanned, err := m.repo.IsBannedUser(r.Context(), authorPubkey)
 		if err != nil {
+			// Fail open or closed? Security says fail closed usually, but availability says fail open if DB is down.
+			// For banlist, if DB is down, maybe we shouldn't block everyone?
+			// But for strict security, we return 500.
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}

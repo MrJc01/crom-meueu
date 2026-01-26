@@ -2,11 +2,11 @@ package sdk
 
 import (
 	"crypto/ed25519"
-	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
 
+	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/curve25519"
 )
 
@@ -23,9 +23,16 @@ func NewCromAuth() *CromAuth {
 	return &CromAuth{}
 }
 
+// Login derives the private key from the seed phrase using Argon2id.
+// WARNING: This is a breaking change from the SHA256 implementation.
 func (a *CromAuth) Login(seedPhrase string) (string, error) {
-	hash := sha256.Sum256([]byte(seedPhrase))
-	privKey := ed25519.NewKeyFromSeed(hash[:])
+	// Use Argon2id for key stretching.
+	// Parameters: time=1, memory=64MB, threads=4, keyLen=32
+	// Salt is static because we need deterministic key generation from the seed phrase alone.
+	salt := []byte("meueu-protocol-salt-v1-hardening")
+	derivedSeed := argon2.IDKey([]byte(seedPhrase), salt, 1, 64*1024, 4, 32)
+
+	privKey := ed25519.NewKeyFromSeed(derivedSeed)
 	a.edPrivKey = privKey
 	a.edPubKey = privKey.Public().(ed25519.PublicKey)
 
