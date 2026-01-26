@@ -53,6 +53,10 @@ func (m *BanlistMiddleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Security: Limit Request Body Size to 1MB to prevent memory exhaustion DoS
+		// This applies to the subsequent handlers that read the body (like PublishHandler)
+		r.Body = http.MaxBytesReader(w, r.Body, 1048576) // 1MB
+
 		next.ServeHTTP(w, r)
 	})
 }

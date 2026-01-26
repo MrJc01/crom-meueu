@@ -2,12 +2,19 @@ package sdk
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
+	"math/big"
 
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/curve25519"
+	"golang.org/x/crypto/nacl/box"
+
+	"filippo.io/edwards25519"
 )
 
 // CromAuth handles Identity, Signing and Encryption.
@@ -78,25 +85,76 @@ func (a *CromAuth) EncryptDM(recipientEdPubHex, message string) (string, string,
 	var edPub [32]byte
 	copy(edPub[:], recipBytes)
 
-	// var curvePub [32]byte
+	// Convert Ed25519 Public Key to Curve25519 Public Key
+	// Curve25519 points are Montgomery points. Ed25519 points are Edwards points.
+	// Step 1: Verify the point is on the Ed25519 curve to prevent invalid curve attacks.
+	if _, err := new(edwards25519.Point).SetBytes(edPub[:]); err != nil {
+		return "", "", fmt.Errorf("invalid ed25519 public key point: %w", err)
+	}
 
-	// TODO: Implement Ed25519 -> Curve25519 conversion properly.
-	// Currently stubbed because external dependencies (agl/ed25519) are failing to fetch.
-	return "", "", errors.New("encryption not supported: missing ed2curve implementation")
+	// Step 2: Convert Y-coordinate (Edwards) to U-coordinate (Montgomery)
+	// Map: u = (1 + y) / (1 - y) mod p
+	// p = 2^255 - 19
 
-	/*
-		if !extra25519.PublicKeyToCurve25519(&curvePub, &edPub) {
-			return "", "", errors.New("failed to convert public key")
-		}
+	// y is the input bytes with the high bit masked out (little endian)
+	var yBytes [32]byte
+	copy(yBytes[:], edPub[:])
+	yBytes[31] &= 0x7F // clear sign bit
 
-		var nonce [24]byte
-		if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-			return "", "", err
-		}
+	// Use math/big for the field arithmetic
+	y := new(big.Int).SetBytes(reverse(yBytes[:])) // big.Int is BigEndian, bytes are LittleEndian
+	one := big.NewInt(1)
 
-		msgBytes := []byte(message)
-		ciphertext := box.Seal(nil, msgBytes, &nonce, &curvePub, &a.boxPrivKey)
+	// P = 2^255 - 19
+	p, _ := new(big.Int).SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed", 16)
 
-		return hex.EncodeToString(ciphertext), hex.EncodeToString(nonce[:]), nil
-	*/
+	// num = 1 + y
+	num := new(big.Int).Add(one, y)
+
+	// den = 1 - y
+	den := new(big.Int).Sub(one, y)
+	den.Mod(den, p) // handle negative result
+
+	// invDen = (1 - y)^-1
+	invDen := new(big.Int).ModInverse(den, p)
+
+	// u = num * invDen mod p
+	u := new(big.Int).Mul(num, invDen)
+	u.Mod(u, p)
+
+	// Convert u back to 32 bytes little-endian
+	uBytesBuff := u.Bytes()
+	var curvePub [32]byte
+	// Pad if needed? u.Bytes() returns minimal bytes
+	// We need to reverse back to Little Endian and put into 32 bytes
+	for i := 0; i < len(uBytesBuff); i++ {
+		// uBytesBuff is Big Endian.
+		// curvePub needs Little Endian.
+		// Last byte of uBytesBuff is the LSByte.
+		// curvePub[0] is LSByte.
+		curvePub[len(uBytesBuff)-1-i] = uBytesBuff[i]
+	}
+	// Note: If uBytesBuff is shorter than 32, the higher indices of curvePub (which map to lower indices of u) will be 0?
+	// Wait, loop above:
+	// Example u=1. uBytesBuff=[1]. len=1.
+	// curvePub[0] = 1. Correct.
+
+	var nonce [24]byte
+	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+		return "", "", err
+	}
+
+	msgBytes := []byte(message)
+	ciphertext := box.Seal(nil, msgBytes, &nonce, &curvePub, &a.boxPrivKey)
+
+	return hex.EncodeToString(ciphertext), hex.EncodeToString(nonce[:]), nil
+}
+
+// Helper to reverse bytes for BigInt conversion
+func reverse(b []byte) []byte {
+	r := make([]byte, len(b))
+	for i := 0; i < len(b); i++ {
+		r[i] = b[len(b)-1-i]
+	}
+	return r
 }

@@ -13,10 +13,19 @@ const NetworkID = "meueu-mainnet-v1"
 
 // VerifySignature checks if the provided signature is valid for the message and public key.
 // It uses a strict canonical serialization format:
-// SHA256(NetworkID | version:1 | author:<pubkey> | kind:<kind> | timestamp:<ts> | payload_hash:<sha256(payload)>)
-func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, payload []byte) (bool, error) {
+// SHA256(NetworkID | version:1 | author:<pubkey> | kind:<kind> | timestamp:<ts> | nonce:<nonce> | payload_hash:<sha256(payload)>)
+func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, nonce string, networkID string, payload []byte) (bool, error) {
 	if pubKeyHex == "" || sigHex == "" {
 		return false, errors.New("public key and signature cannot be empty")
+	}
+
+	// Default NetworkID if empty (backward compatibility or strict enforcement?)
+	// Strict: Fail if empty.
+	if networkID == "" {
+		return false, errors.New("network_id is required")
+	}
+	if nonce == "" {
+		return false, errors.New("nonce is required")
 	}
 
 	// Decode the hex strings
@@ -40,17 +49,17 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, pay
 	}
 
 	// Construct Canonical Message
-	// We hash the payload first to ensure size consistency and avoid memory exhaustion for large payloads during concat
+	// We hash the payload first to ensure size consistency.
 	payloadHash := sha256.Sum256(payload)
 	payloadHashHex := hex.EncodeToString(payloadHash[:])
 
-	// Strict format with delimiters that cannot be injected easily if we control the structure
-	// Format: <NetworkID>|v1|author:<pubkey>|kind:<kind>|ts:<timestamp>|phash:<payload_hash>
-	canonicalMsg := fmt.Sprintf("%s|v1|author:%s|kind:%s|ts:%d|phash:%s",
-		NetworkID,
+	// Strict format: <NetworkID>|v1|<pubkey>|<kind>|<ts>|<nonce>|<phash>
+	canonicalMsg := fmt.Sprintf("%s|v1|author:%s|kind:%s|ts:%d|nonce:%s|phash:%s",
+		networkID,
 		pubKeyHex,
 		kind,
 		timestamp,
+		nonce,
 		payloadHashHex,
 	)
 

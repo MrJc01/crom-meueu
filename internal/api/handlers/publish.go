@@ -39,6 +39,10 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing required fields (author_pubkey, kind, signature)", http.StatusBadRequest)
 		return
 	}
+	if req.NetworkID == "" || req.Nonce == "" {
+		http.Error(w, "Missing required fields (network_id, nonce)", http.StatusBadRequest)
+		return
+	}
 
 	// 2. Security: Drift Window Check (±5 minutes)
 	// Prevents temporal paradoxes and some replay scenarios
@@ -52,7 +56,7 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	// 3. Verify Signature (V2 Strict)
 	// We pass raw payload to let VerifySignature handle canonicalization
 	payloadBytes, _ := req.Payload.MarshalJSON()
-	valid, err := security.VerifySignature(req.AuthorPubkey, req.Signature, req.Kind, req.ClaimedAt.Unix(), payloadBytes)
+	valid, err := security.VerifySignature(req.AuthorPubkey, req.Signature, req.Kind, req.ClaimedAt.Unix(), req.Nonce, req.NetworkID, payloadBytes)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Signature verification error: %v", err), http.StatusBadRequest)
 		return

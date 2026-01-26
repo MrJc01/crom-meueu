@@ -17,6 +17,8 @@ type Node struct {
 	Payload      json.RawMessage `json:"payload"`
 	Tags         json.RawMessage `json:"tags,omitempty"`
 	Signature    string          `json:"signature"`
+	NetworkID    string          `json:"network_id"` // Anti-replay: domain separation
+	Nonce        string          `json:"nonce"`      // Anti-replay: uniqueness
 	ClaimedAt    time.Time       `json:"claimed_at"`
 	VerifiedAt   time.Time       `json:"verified_at"`
 	OriginServer string          `json:"origin_server,omitempty"`
@@ -26,10 +28,12 @@ type Node struct {
 // Note: ID generation and Signature must be handled by the caller/client appropriately.
 func NewNode(authorPubkey, kind string, payload json.RawMessage) *Node {
 	return &Node{
-		ID:           uuid.New(),
+		ID:           uuid.New(), // Will be overwritten by hash(signature) in newer protocol versions
 		AuthorPubkey: authorPubkey,
 		Kind:         kind,
 		Payload:      payload,
-		ClaimedAt:    time.Now(), // Default to now, but usually client provides this
+		NetworkID:    "meueu-mainnet-v1",  // Default to mainnet
+		Nonce:        uuid.New().String(), // Random nonce
+		ClaimedAt:    time.Now(),
 	}
 }

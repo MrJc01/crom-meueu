@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Client handles network interaction with Crom Node
@@ -31,6 +33,8 @@ type Node struct {
 	Payload      json.RawMessage `json:"payload"`
 	Tags         []string        `json:"tags,omitempty"`
 	Signature    string          `json:"signature"`
+	NetworkID    string          `json:"network_id"` // P2P Domain
+	Nonce        string          `json:"nonce"`      // Anti-Replay
 	ClaimedAt    string          `json:"claimed_at"`
 	OriginServer string          `json:"origin_server,omitempty"`
 }
@@ -48,7 +52,15 @@ type QueryRequest struct {
 }
 
 // Publish sends a signed node to the network
+// It automatically populates NetworkID and Nonce if missing.
 func (c *Client) Publish(node *Node) error {
+	if node.NetworkID == "" {
+		node.NetworkID = "meueu-mainnet-v1"
+	}
+	if node.Nonce == "" {
+		node.Nonce = uuid.New().String()
+	}
+
 	data, err := json.Marshal(node)
 	if err != nil {
 		return err
