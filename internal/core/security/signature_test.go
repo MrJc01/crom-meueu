@@ -25,23 +25,27 @@ func TestVerifySignature(t *testing.T) {
 	networkID := "test-net"
 
 	// Construct Canonical Message manually to sign
-	// Format: <NetworkID>|v1|author:<pubkey>|kind:<kind>|ts:<timestamp>|nonce:<nonce>|phash:<payload_hash>
+	// Format: [Len][Val]...
 	pubKeyHex := hex.EncodeToString(pubKey)
 	payloadHash := sha256.Sum256(payload)
 	payloadHashHex := hex.EncodeToString(payloadHash[:])
+	timestampStr := fmt.Sprintf("%d", timestamp)
 
 	var buf bytes.Buffer
-	buf.WriteString(networkID)
-	buf.WriteString("|v1|author:")
-	buf.WriteString(pubKeyHex)
-	buf.WriteString("|kind:")
-	buf.WriteString(kind)
-	buf.WriteString("|ts:")
-	buf.WriteString(fmt.Sprintf("%d", timestamp))
-	buf.WriteString("|nonce:")
-	buf.WriteString(nonce)
-	buf.WriteString("|phash:")
-	buf.WriteString(payloadHashHex)
+	writeTLV := func(data string) {
+		l := uint16(len(data))
+		buf.WriteByte(byte(l >> 8))
+		buf.WriteByte(byte(l))
+		buf.WriteString(data)
+	}
+
+	writeTLV(networkID)
+	writeTLV("v2")
+	writeTLV(pubKeyHex)
+	writeTLV(kind)
+	writeTLV(timestampStr)
+	writeTLV(nonce)
+	writeTLV(payloadHashHex)
 
 	canonicalMsg := buf.Bytes()
 

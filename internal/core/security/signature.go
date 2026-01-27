@@ -18,15 +18,14 @@ const NetworkID = "meueu-mainnet-v1"
 var safeInputRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
 // VerifySignature checks if the provided signature is valid for the message and public key.
-// It uses a strict canonical serialization format:
-// Key:Value|Key:Value...
-// SHA256(NetworkID | version:1 | author:<pubkey> | kind:<kind> | timestamp:<ts> | nonce:<nonce> | payload_hash:<sha256(payload)>)
+// It uses a strict Length-Prefix (TLV) serialization format to conduct the check:
+// [2b len][val]... for: NetworkID, Version("v2"), AuthorPubkey, Kind, Timestamp(string), Nonce, PayloadHash
 func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, nonce string, networkID string, payload []byte) (bool, error) {
 	if pubKeyHex == "" || sigHex == "" {
 		return false, errors.New("public key and signature cannot be empty")
 	}
 
-	// 1. Strict Input Sanitization (Injection Prevention)
+	// 1. Basic Sanitization (prevent generic malformed inputs, though TLV handles delimiters safely)
 	if !safeInputRegex.MatchString(networkID) {
 		return false, errors.New("invalid network_id characters")
 	}
@@ -62,26 +61,33 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 		return false, fmt.Errorf("invalid signature length: expected %d, got %d", ed25519.SignatureSize, len(signature))
 	}
 
-	// Construct Canonical Message
-	// We hash the payload first to ensure size consistency.
+	// Construct Canonical Message using TLV (Length-Value)
+	// Format: [Len][Val]...
+	// Fields: NetworkID, Version, Author, Kind, Timestamp, Nonce, PayloadHash
+
 	payloadHash := sha256.Sum256(payload)
 	payloadHashHex := hex.EncodeToString(payloadHash[:])
+	timestampStr := fmt.Sprintf("%d", timestamp)
 
-	// Strict format: <NetworkID>|v1|author:<pubkey>|kind:<kind>|ts:<timestamp>|nonce:<nonce>|phash:<payload_hash>
-	// Using bytes.Buffer for efficiency.
-	// Input values are now guaranteed to NOT contain '|' due to regex check above.
 	var buf bytes.Buffer
-	buf.WriteString(networkID)
-	buf.WriteString("|v1|author:")
-	buf.WriteString(pubKeyHex)
-	buf.WriteString("|kind:")
-	buf.WriteString(kind)
-	buf.WriteString("|ts:")
-	buf.WriteString(fmt.Sprintf("%d", timestamp))
-	buf.WriteString("|nonce:")
-	buf.WriteString(nonce)
-	buf.WriteString("|phash:")
-	buf.WriteString(payloadHashHex)
+
+	// Helper to write TLV
+	writeTLV := func(data string) {
+		l := uint16(len(data))
+		// Write Length (16-bit Big Endian)
+		buf.WriteByte(byte(l >> 8))
+		buf.WriteByte(byte(l))
+		// Write Value
+		buf.WriteString(data)
+	}
+
+	writeTLV(networkID)
+	writeTLV("v2")      // Enforce Protocol Version v2
+	writeTLV(pubKeyHex) // Author PubKey (Hex String)
+	writeTLV(kind)
+	writeTLV(timestampStr)
+	writeTLV(nonce)
+	writeTLV(payloadHashHex)
 
 	canonicalMsg := buf.Bytes()
 

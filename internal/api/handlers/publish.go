@@ -117,12 +117,14 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	idBytes[8] = (idBytes[8] & 0x3f) | 0x80 // Variant 10
 	req.ID = uuid.UUID(idBytes)
 
-	// 6. Security: Replay Attack Defense (Idempotency)
-	// Check if ID exists.
-	existingNode, err := h.repo.GetByID(r.Context(), req.ID) // Assuming GetByID exists or using a quick check
+	// 6. Security: Replay Attack Defense (Idempotency & Replay)
+	// Check if ID exists (Idempotency) matches SHA256(Sig).
+	// TODO: Implement Strict Nonce Validation (Cross-Network Replay Protection)
+	// E.g., h.repo.CheckNonce(ctx, req.AuthorPubkey, req.Nonce) to ensure nonce is used only once per (Author, TimeWindow).
+	existingNode, err := h.repo.GetByID(r.Context(), req.ID)
 	if err == nil && existingNode != nil {
-		// ID exists. This is a Replay or Retry.
-		// Return 200 OK (Idempotent) to client, but do not process/store again.
+		// ID exists. This is a Resubmission (Idempotent).
+		// We return 200 OK to indicate "Processed" (even if previously).
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{
