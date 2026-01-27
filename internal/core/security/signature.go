@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -14,7 +15,6 @@ import (
 const NetworkID = "meueu-mainnet-v1"
 
 // Whitelist regex for safe inputs (Alphanumeric, hyphen, underscore).
-// Prohibits characters like '|', ':', which are used as delimiters.
 var safeInputRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
 // VerifySignature checks if the provided signature is valid for the message and public key.
@@ -25,7 +25,7 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 		return false, errors.New("public key and signature cannot be empty")
 	}
 
-	// 1. Basic Sanitization (prevent generic malformed inputs, though TLV handles delimiters safely)
+	// 1. Basic Sanitization
 	if !safeInputRegex.MatchString(networkID) {
 		return false, errors.New("invalid network_id characters")
 	}
@@ -36,12 +36,11 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 		return false, errors.New("invalid kind characters")
 	}
 
-	// Default NetworkID enforcement
 	if networkID == "" {
 		return false, errors.New("network_id is required")
 	}
 
-	// Decode the hex strings
+	// Decode keys
 	pubKey, err := hex.DecodeString(pubKeyHex)
 	if err != nil {
 		return false, fmt.Errorf("invalid public key hex: %w", err)
@@ -52,7 +51,6 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 		return false, fmt.Errorf("invalid signature hex: %w", err)
 	}
 
-	// Validate key lengths
 	if len(pubKey) != ed25519.PublicKeySize {
 		return false, fmt.Errorf("invalid public key length: expected %d, got %d", ed25519.PublicKeySize, len(pubKey))
 	}
@@ -61,10 +59,7 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 		return false, fmt.Errorf("invalid signature length: expected %d, got %d", ed25519.SignatureSize, len(signature))
 	}
 
-	// Construct Canonical Message using TLV (Length-Value)
-	// Format: [Len][Val]...
-	// Fields: NetworkID, Version, Author, Kind, Timestamp, Nonce, PayloadHash
-
+	// Construct Canonical Message using strict TLV (Big Endian Length Prefix)
 	payloadHash := sha256.Sum256(payload)
 	payloadHashHex := hex.EncodeToString(payloadHash[:])
 	timestampStr := fmt.Sprintf("%d", timestamp)
@@ -75,15 +70,15 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 	writeTLV := func(data string) {
 		l := uint16(len(data))
 		// Write Length (16-bit Big Endian)
-		buf.WriteByte(byte(l >> 8))
-		buf.WriteByte(byte(l))
+		binary.Write(&buf, binary.BigEndian, l)
 		// Write Value
 		buf.WriteString(data)
 	}
 
+	// Strict Order: NetworkID -> Version -> Author -> Kind -> Timestamp -> Nonce -> PayloadHash
 	writeTLV(networkID)
 	writeTLV("v2")      // Enforce Protocol Version v2
-	writeTLV(pubKeyHex) // Author PubKey (Hex String)
+	writeTLV(pubKeyHex) // Author PubKey
 	writeTLV(kind)
 	writeTLV(timestampStr)
 	writeTLV(nonce)
@@ -91,7 +86,7 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 
 	canonicalMsg := buf.Bytes()
 
-	// Verify using standard crypto/ed25519
+	// Verify
 	valid := ed25519.Verify(pubKey, canonicalMsg, signature)
 	return valid, nil
 }

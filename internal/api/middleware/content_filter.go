@@ -25,36 +25,33 @@ func (m *ContentFilterMiddleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Fail-open strategy: If DB is unreachable, we log error (optional) and allow traffic.
+		// Fail-open strategy
 		words, err := m.repo.GetBannedWords(r.Context())
 		if err != nil || len(words) == 0 {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Read Body (Limit to 1MB to match Publish Handler or use smaller limit for filter)
+		// Read Body (Limit 1MB)
 		bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1048576))
 		if err != nil {
 			http.Error(w, "Request body too large for analysis", http.StatusRequestEntityTooLarge)
 			return
 		}
 
-		// Restore Body for the next handler
+		// Restore Body
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		// Parse JSON to check values only (avoiding keys or JSON structure overhead)
+		// Parse JSON to normalize escapes
 		var payload interface{}
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
-			// If it's not valid JSON, we can't inspect deeply.
-			// Depending on policy: Block or Pass?
-			// Publish handler requires JSON. If this fails, Publish will likely fail too.
-			// We pass it down to let the specific handler decide, or block here if we are strict.
-			// Let's pass it down.
+			// If JSON is invalid, pass valid requests down (let handler handle it)
+			// But since we are protection layer, maybe we should swallow?
+			// Policy: Pass it.
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Recursive check
 		if containsBannedWords(payload, words) {
 			http.Error(w, "Content Rejected: Contains prohibited words.", http.StatusBadRequest)
 			return
@@ -64,13 +61,14 @@ func (m *ContentFilterMiddleware) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-// containsBannedWords recursively checks strings in a generic JSON structure
+// containsBannedWords recursively checks strings in a generic JSON structure.
+// json.Unmarshal automatically decodes escapes like \u0061 -> 'a'.
 func containsBannedWords(data interface{}, banned []string) bool {
 	switch v := data.(type) {
 	case string:
-		// Normalize: Lowercase for comparison
 		norm := strings.ToLower(v)
 		for _, word := range banned {
+			// Basic substring check on normalized text
 			if strings.Contains(norm, strings.ToLower(word)) {
 				return true
 			}

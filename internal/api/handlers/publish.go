@@ -33,7 +33,6 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Security: Anti-DoS (Memory Exhaustion)
 	// Enforce strict limit on request body size (1MB).
-	// This prevents OOM attacks by reading unlimited streams.
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576) // 1MB
 
 	bodyBytes, err := io.ReadAll(r.Body)
@@ -64,28 +63,17 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Security: Time Travel & Import Logic
-	// Rule 1: Future dates > 5m are strictly forbidden (Time Travelers/Clock Skew Attacks).
-	// Rule 2: Past dates are ALLOWED as "Historic Imports".
-	// Rule 3: `verified_at` is ALWAYS `now` to track ingestion time.
 	now := time.Now()
 	drift := req.ClaimedAt.Sub(now)
 
+	// Rule: Future dates > 5m are strictly forbidden (Time Travelers/Clock Skew Attacks).
 	if drift > 5*time.Minute {
-		// Future: Reject
 		http.Error(w, fmt.Sprintf("Invalid timestamp: claimed_at is in the future (%v). Clock skew > 5m not allowed.", req.ClaimedAt), http.StatusBadRequest)
 		return
 	}
+	// Past dates (Import Mode) are implicitly allowed.
 
-	// If message is older than 5 minutes, we consider it an "Import".
-	// No error, just standard processing.
-
-	// 4. Verify Signature (V2 Strict + Sanitized)
-	// We pass raw payload to let VerifySignature handle canonicalization.
-	// Re-marshalling payload ensures we verify what we parsed, although using original bytes slice for payload logic
-	// would may be safer if JSON field ordering matters.
-	// However, `req.Payload` is `json.RawMessage` or similar, usually a map/struct.
-	// We trust `req.Payload.MarshalJSON()` produces the canonical payload bytes expected by the signer.
-	// Note: Ideally, the client sends the payload string exactly as signed.
+	// 4. Verify Signature (V2 Strict TLV)
 	payloadBytes, err := req.Payload.MarshalJSON()
 	if err != nil {
 		http.Error(w, "Invalid payload format", http.StatusBadRequest)
@@ -94,8 +82,7 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	valid, err := security.VerifySignature(req.AuthorPubkey, req.Signature, req.Kind, req.ClaimedAt.Unix(), req.Nonce, req.NetworkID, payloadBytes)
 	if err != nil {
-		// Log specific signature error for debugging, return generic bad request
-		// fmt.Printf("Sig Debug: %v\n", err)
+		// Return 400 for bad signature format/checks
 		http.Error(w, fmt.Sprintf("Signature verification error: %v", err), http.StatusBadRequest)
 		return
 	}
@@ -105,9 +92,7 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 5. Generate ID (Content-Addressable / Deterministic)
-	// ID = SHA256(Signature). This guarantees that:
-	// - Uniqueness changes if Sig changes (which changes if Content/Nonce/Time changes).
-	// - Re-submitting the EXACT SAME signed message results in the SAME ID. (Idempotency Key)
+	// ID = SHA256(Signature)
 	sigHash := sha256.Sum256([]byte(req.Signature))
 	var idBytes [16]byte
 	copy(idBytes[:], sigHash[:16])
@@ -117,14 +102,9 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	idBytes[8] = (idBytes[8] & 0x3f) | 0x80 // Variant 10
 	req.ID = uuid.UUID(idBytes)
 
-	// 6. Security: Replay Attack Defense (Idempotency & Replay)
-	// Check if ID exists (Idempotency) matches SHA256(Sig).
-	// TODO: Implement Strict Nonce Validation (Cross-Network Replay Protection)
-	// E.g., h.repo.CheckNonce(ctx, req.AuthorPubkey, req.Nonce) to ensure nonce is used only once per (Author, TimeWindow).
+	// 6. Check Idempotency
 	existingNode, err := h.repo.GetByID(r.Context(), req.ID)
 	if err == nil && existingNode != nil {
-		// ID exists. This is a Resubmission (Idempotent).
-		// We return 200 OK to indicate "Processed" (even if previously).
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -135,10 +115,11 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 7. Persist
+	// IMPORTANT: VerifiedAt is ALWAYS set to NOW using the server's clock.
+	// This proves WHEN it was seen by the network, regardless of claimed_at.
 	req.VerifiedAt = now
 
 	if err := h.repo.Create(r.Context(), &req); err != nil {
-		// Handle race condition if two requests came in parallel and both passed the 'GetByID' check
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -148,13 +129,11 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-
 		fmt.Printf("DB Error: %v\n", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// 8. Response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{
