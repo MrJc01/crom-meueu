@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -28,8 +29,17 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Security: Read Raw Body Maximum 1MB (enforced by middleware, but good to double check or use here)
+	// We read all bytes to ensure signature verification uses the exact transmission.
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
 	var req domain.Node
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
 	}

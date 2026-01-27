@@ -1,6 +1,7 @@
 package security
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
@@ -54,16 +55,23 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 	payloadHashHex := hex.EncodeToString(payloadHash[:])
 
 	// Strict format: <NetworkID>|v1|<pubkey>|<kind>|<ts>|<nonce>|<phash>
-	canonicalMsg := fmt.Sprintf("%s|v1|author:%s|kind:%s|ts:%d|nonce:%s|phash:%s",
-		networkID,
-		pubKeyHex,
-		kind,
-		timestamp,
-		nonce,
-		payloadHashHex,
-	)
+	// Using bytes.Buffer for efficiency and avoiding format string injection risks
+	var buf bytes.Buffer
+	buf.WriteString(networkID)
+	buf.WriteString("|v1|author:")
+	buf.WriteString(pubKeyHex)
+	buf.WriteString("|kind:")
+	buf.WriteString(kind)
+	buf.WriteString("|ts:")
+	buf.WriteString(fmt.Sprintf("%d", timestamp))
+	buf.WriteString("|nonce:")
+	buf.WriteString(nonce)
+	buf.WriteString("|phash:")
+	buf.WriteString(payloadHashHex)
+
+	canonicalMsg := buf.Bytes()
 
 	// Verify using standard crypto/ed25519
-	valid := ed25519.Verify(pubKey, []byte(canonicalMsg), signature)
+	valid := ed25519.Verify(pubKey, canonicalMsg, signature)
 	return valid, nil
 }

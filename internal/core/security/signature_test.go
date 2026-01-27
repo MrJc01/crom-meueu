@@ -1,6 +1,7 @@
 package security
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
@@ -29,17 +30,23 @@ func TestVerifySignature(t *testing.T) {
 	payloadHash := sha256.Sum256(payload)
 	payloadHashHex := hex.EncodeToString(payloadHash[:])
 
-	canonicalMsg := fmt.Sprintf("%s|v1|author:%s|kind:%s|ts:%d|nonce:%s|phash:%s",
-		networkID,
-		pubKeyHex,
-		kind,
-		timestamp,
-		nonce,
-		payloadHashHex,
-	)
+	var buf bytes.Buffer
+	buf.WriteString(networkID)
+	buf.WriteString("|v1|author:")
+	buf.WriteString(pubKeyHex)
+	buf.WriteString("|kind:")
+	buf.WriteString(kind)
+	buf.WriteString("|ts:")
+	buf.WriteString(fmt.Sprintf("%d", timestamp))
+	buf.WriteString("|nonce:")
+	buf.WriteString(nonce)
+	buf.WriteString("|phash:")
+	buf.WriteString(payloadHashHex)
+
+	canonicalMsg := buf.Bytes()
 
 	// Sign the message
-	signature := ed25519.Sign(privKey, []byte(canonicalMsg))
+	signature := ed25519.Sign(privKey, canonicalMsg)
 	sigHex := hex.EncodeToString(signature)
 
 	// Test Case 1: Valid Signature
