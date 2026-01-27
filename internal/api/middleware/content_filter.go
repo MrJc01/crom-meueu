@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -24,50 +25,68 @@ func (m *ContentFilterMiddleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Get Banned Words
-		// Optimization: In a real high-traffic app, this should be cached in memory
-		// and updated via channel or polling. Checking DB on every POST is expensive-ish
-		// but acceptable for MVP/Proof of Concept.
+		// Fail-open strategy: If DB is unreachable, we log error (optional) and allow traffic.
 		words, err := m.repo.GetBannedWords(r.Context())
-		if err != nil {
-			// Fail open or fail closed?
-			// Fail open: log err, allow post.
-			// Fail closed: return 500.
-			// Let's fail open for availability but log it (can't log easily without logger dependency).
-			// We'll proceed.
+		if err != nil || len(words) == 0 {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		if len(words) == 0 {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Read Body
-		bodyBytes, err := io.ReadAll(r.Body)
+		// Read Body (Limit to 1MB to match Publish Handler or use smaller limit for filter)
+		bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1048576))
 		if err != nil {
-			http.Error(w, "Failed to read body", http.StatusInternalServerError)
+			http.Error(w, "Request body too large for analysis", http.StatusRequestEntityTooLarge)
 			return
 		}
 
-		// Restore Body
+		// Restore Body for the next handler
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		// Check Content
-		// We define "Content" as the raw JSON body for simplicity.
-		// If a banned word is in a tag or attribute name, it blocks too.
-		// This is a "Hammer" approach.
-		bodyStr := string(bodyBytes)
-		lowerBody := strings.ToLower(bodyStr)
+		// Parse JSON to check values only (avoiding keys or JSON structure overhead)
+		var payload interface{}
+		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+			// If it's not valid JSON, we can't inspect deeply.
+			// Depending on policy: Block or Pass?
+			// Publish handler requires JSON. If this fails, Publish will likely fail too.
+			// We pass it down to let the specific handler decide, or block here if we are strict.
+			// Let's pass it down.
+			next.ServeHTTP(w, r)
+			return
+		}
 
-		for _, word := range words {
-			if strings.Contains(lowerBody, strings.ToLower(word)) {
-				http.Error(w, "Content Rejected: Contains prohibited words.", http.StatusBadRequest)
-				return
-			}
+		// Recursive check
+		if containsBannedWords(payload, words) {
+			http.Error(w, "Content Rejected: Contains prohibited words.", http.StatusBadRequest)
+			return
 		}
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// containsBannedWords recursively checks strings in a generic JSON structure
+func containsBannedWords(data interface{}, banned []string) bool {
+	switch v := data.(type) {
+	case string:
+		// Normalize: Lowercase for comparison
+		norm := strings.ToLower(v)
+		for _, word := range banned {
+			if strings.Contains(norm, strings.ToLower(word)) {
+				return true
+			}
+		}
+	case map[string]interface{}:
+		for _, val := range v {
+			if containsBannedWords(val, banned) {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, val := range v {
+			if containsBannedWords(val, banned) {
+				return true
+			}
+		}
+	}
+	return false
 }

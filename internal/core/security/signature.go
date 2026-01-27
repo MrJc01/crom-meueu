@@ -7,26 +7,39 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 )
 
 // NetworkID identifies the specific network domain to prevent cross-network replay attacks.
 const NetworkID = "meueu-mainnet-v1"
 
+// Whitelist regex for safe inputs (Alphanumeric, hyphen, underscore).
+// Prohibits characters like '|', ':', which are used as delimiters.
+var safeInputRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
+
 // VerifySignature checks if the provided signature is valid for the message and public key.
 // It uses a strict canonical serialization format:
+// Key:Value|Key:Value...
 // SHA256(NetworkID | version:1 | author:<pubkey> | kind:<kind> | timestamp:<ts> | nonce:<nonce> | payload_hash:<sha256(payload)>)
 func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, nonce string, networkID string, payload []byte) (bool, error) {
 	if pubKeyHex == "" || sigHex == "" {
 		return false, errors.New("public key and signature cannot be empty")
 	}
 
-	// Default NetworkID if empty (backward compatibility or strict enforcement?)
-	// Strict: Fail if empty.
+	// 1. Strict Input Sanitization (Injection Prevention)
+	if !safeInputRegex.MatchString(networkID) {
+		return false, errors.New("invalid network_id characters")
+	}
+	if !safeInputRegex.MatchString(nonce) {
+		return false, errors.New("invalid nonce characters")
+	}
+	if !safeInputRegex.MatchString(kind) {
+		return false, errors.New("invalid kind characters")
+	}
+
+	// Default NetworkID enforcement
 	if networkID == "" {
 		return false, errors.New("network_id is required")
-	}
-	if nonce == "" {
-		return false, errors.New("nonce is required")
 	}
 
 	// Decode the hex strings
@@ -54,8 +67,9 @@ func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, non
 	payloadHash := sha256.Sum256(payload)
 	payloadHashHex := hex.EncodeToString(payloadHash[:])
 
-	// Strict format: <NetworkID>|v1|<pubkey>|<kind>|<ts>|<nonce>|<phash>
-	// Using bytes.Buffer for efficiency and avoiding format string injection risks
+	// Strict format: <NetworkID>|v1|author:<pubkey>|kind:<kind>|ts:<timestamp>|nonce:<nonce>|phash:<payload_hash>
+	// Using bytes.Buffer for efficiency.
+	// Input values are now guaranteed to NOT contain '|' due to regex check above.
 	var buf bytes.Buffer
 	buf.WriteString(networkID)
 	buf.WriteString("|v1|author:")

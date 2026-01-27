@@ -6,6 +6,7 @@ import (
 
 	"meueu/internal/core/domain"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -126,4 +127,32 @@ func (r *NodeRepository) Query(ctx context.Context, filter domain.NodeFilter, li
 	}
 
 	return nodes, nil
+}
+
+func (r *NodeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Node, error) {
+	query := `SELECT 
+		id, parent_id, author_pubkey, kind, payload, tags, 
+		signature, claimed_at, verified_at, origin_server
+	FROM nodes WHERE id = $1`
+
+	row := r.pool.QueryRow(ctx, query, id)
+
+	node := &domain.Node{}
+	err := row.Scan(
+		&node.ID,
+		&node.ParentID,
+		&node.AuthorPubkey,
+		&node.Kind,
+		&node.Payload,
+		&node.Tags,
+		&node.Signature,
+		&node.ClaimedAt,
+		&node.VerifiedAt,
+		&node.OriginServer,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("scan failed: %w", err)
+	}
+
+	return node, nil
 }
