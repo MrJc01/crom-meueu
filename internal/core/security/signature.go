@@ -18,8 +18,10 @@ const NetworkID = "meueu-mainnet-v1"
 var safeInputRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
 // VerifySignature checks if the provided signature is valid for the message and public key.
-// It uses a strict Length-Prefix (TLV) serialization format to conduct the check:
-// [2b len][val]... for: NetworkID, Version("v2"), AuthorPubkey, Kind, Timestamp(string), Nonce, PayloadHash
+// It uses a strict Length-Prefix (Type-Length-Value / TLV) serialization format to conduct the check:
+// Format: [2b len][val]...
+// This structure is "Blindado" (Armored) against Canonicalization Attacks because every field
+// is strictly delimited by its length, making injection of delimiters (like '|') impossible.
 func VerifySignature(pubKeyHex, sigHex string, kind string, timestamp int64, nonce string, networkID string, payload []byte) (bool, error) {
 	if pubKeyHex == "" || sigHex == "" {
 		return false, errors.New("public key and signature cannot be empty")

@@ -43,6 +43,7 @@ func (m *ContentFilterMiddleware) Middleware(next http.Handler) http.Handler {
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 		// Parse JSON to normalize escapes
+		// Fixes "Evasão de Filtro": \u0061 becomes 'a' automatically.
 		var payload interface{}
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 			// If JSON is invalid, pass valid requests down (let handler handle it)
@@ -66,6 +67,7 @@ func (m *ContentFilterMiddleware) Middleware(next http.Handler) http.Handler {
 func containsBannedWords(data interface{}, banned []string) bool {
 	switch v := data.(type) {
 	case string:
+		// Normalize: Lowercase for comparison
 		norm := strings.ToLower(v)
 		for _, word := range banned {
 			// Basic substring check on normalized text
