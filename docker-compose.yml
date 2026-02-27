@@ -27,8 +27,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - crom_net
-    # ports:
-    #   - "5433:5432" # Disabled to avoid host conflicts on VPS
+    ports:
+      - "5432:5432" # Exposed for local development
 
 networks:
   crom_net:
