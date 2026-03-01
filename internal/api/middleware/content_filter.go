@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -25,13 +27,6 @@ func (m *ContentFilterMiddleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Fail-open strategy
-		words, err := m.repo.GetBannedWords(r.Context())
-		if err != nil || len(words) == 0 {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		// Read Body (Limit 1MB)
 		bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1048576))
 		if err != nil {
@@ -46,16 +41,34 @@ func (m *ContentFilterMiddleware) Middleware(next http.Handler) http.Handler {
 		// Fixes "Evasão de Filtro": \u0061 becomes 'a' automatically.
 		var payload interface{}
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
-			// If JSON is invalid, pass valid requests down (let handler handle it)
-			// But since we are protection layer, maybe we should swallow?
-			// Policy: Pass it.
+			// If JSON is invalid, pass it down (let handler handle it)
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		if containsBannedWords(payload, words) {
-			http.Error(w, "Content Rejected: Contains prohibited words.", http.StatusBadRequest)
-			return
+		// --- Check 1: Banned Words ---
+		// Fail-open strategy: if DB error, allow through
+		words, err := m.repo.GetBannedWords(r.Context())
+		if err == nil && len(words) > 0 {
+			if containsBannedWords(payload, words) {
+				http.Error(w, "Content Rejected: Contains prohibited words.", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// --- Check 2: Banned Hashes (SHA256 of signature) ---
+		// Extract signature from the parsed JSON and check against banned hashes
+		if payloadMap, ok := payload.(map[string]interface{}); ok {
+			if sig, ok := payloadMap["signature"].(string); ok && sig != "" {
+				sigHash := sha256.Sum256([]byte(sig))
+				sigHashHex := hex.EncodeToString(sigHash[:])
+
+				isBanned, err := m.repo.IsBannedHash(r.Context(), sigHashHex)
+				if err == nil && isBanned {
+					http.Error(w, "Content Rejected: This content has been blocked by hash.", http.StatusForbidden)
+					return
+				}
+			}
 		}
 
 		next.ServeHTTP(w, r)

@@ -7,37 +7,22 @@ if (!window.cromAuth) {
 }
 window.identityManager = window.cromAuth; // Backwards compatibility
 
-// UI Helper Methods attached to the Identity Manager instance
-// UI Helper Methods
-window.checkSession = function () {
-    const auth = window.cromAuth || window.identityManager;
-    if (auth && auth.keyPair) {
-        alert("You are already logged in!");
-        updateAuthUI();
-    } else {
-        showLogin();
-    }
-};
-// Alias for backward compat (if needed, but moving away from it)
-window.identityManager.checkSession = window.checkSession;
-
 document.addEventListener('DOMContentLoaded', async () => {
-
     injectLoginModal();
 
-    // Check Session (custom implementation for now, or add to SDK?)
-    // The SDK example `CromAuth` didn't explicitly have persistence, let's keep it here or check it.
-    // The original `crypto_auth.js` had session logic.
-    // Let's implement basic session usage here using the SDK methods.
-
-    // Check if we have a stored session
-    // Check if we have a stored session
-    const stored = JSON.parse(sessionStorage.getItem('crom_identity'));
-    if (stored && stored.seed) {
-        await window.cromAuth.login(stored.seed);
+    // Restore session from storage
+    const storedVault = sessionStorage.getItem('crom_vault');
+    if (storedVault) {
+        try {
+            const cromidData = JSON.parse(storedVault);
+            await window.cromAuth.loadIdentityAuto(cromidData);
+        } catch (e) {
+            console.error("Session restore failed", e);
+            sessionStorage.removeItem('crom_vault');
+        }
     }
 
-    // Always update UI (shows "Login" button if not logged in)
+    // Always update UI
     updateAuthUI();
 });
 
@@ -52,45 +37,95 @@ function injectLoginModal() {
 
     div.innerHTML = `
         <div style="background:#1a1a1a; padding:30px; border-radius:16px; width:100%; max-width:400px; text-align:center; border:1px solid #333; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
-            <h2 style="margin-top:0; color:white">Identity Login</h2>
-            <p style="color:#aaa; font-size:14px; margin-bottom:20px">Enter your Brain Key (Seed Phrase) to access your decentralized identity.</p>
-            
-            <input type="password" id="seed-input" placeholder="Enter seed phrase..." style="width:100%; padding:12px; margin-bottom:15px; border-radius:8px; border:1px solid #444; background:#222; color:white; box-sizing:border-box">
-            
-            <button id="login-btn" style="width:100%; padding:12px; border-radius:8px; border:none; background:#00d2ff; color:black; font-weight:bold; cursor:pointer; margin-bottom:10px">Login</button>
-            <button id="gen-btn" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:transparent; color:#fff; font-weight:bold; cursor:pointer">Generate New Identity</button>
-            <button id="cancel-login" style="margin-top:15px; background:none; border:none; color:#666; cursor:pointer">Cancel</button>
+            <h2 style="margin-top:0; color:white">Identity Vault</h2>
+            <p style="color:#aaa; font-size:14px; margin-bottom:24px">Load your <b>.cromid</b> file or generate a new identity.</p>
+
+            <!-- Login with file -->
+            <label id="file-upload-label" style="
+                display: flex; align-items: center; justify-content: center; gap: 10px;
+                width: 100%; padding: 16px; border-radius: 12px;
+                border: 2px dashed #444; background: #222; color: #ccc;
+                font-size: 15px; font-weight: 500; cursor: pointer;
+                transition: all 0.2s; margin-bottom: 16px;
+            ">
+                📂 Upload .cromid file
+                <input type="file" id="cromid-file" accept=".cromid,.json" style="display:none">
+            </label>
+
+            <div style="display:flex; align-items:center; gap:12px; margin:20px 0;">
+                <hr style="flex:1; border:0; border-top:1px solid #333;">
+                <span style="color:#555; font-size:12px;">OR</span>
+                <hr style="flex:1; border:0; border-top:1px solid #333;">
+            </div>
+
+            <!-- Generate new identity -->
+            <button id="gen-btn" style="
+                width: 100%; padding: 14px; border-radius: 12px;
+                border: 1px solid #00ff41; background: rgba(0,255,65,0.08);
+                color: #00ff41; font-size: 15px; font-weight: 600;
+                cursor: pointer; transition: all 0.2s;
+            ">⚡ Generate New Identity</button>
+            <p style="color:#555; font-size:11px; margin-top:8px;">A <b>.cromid</b> file will be downloaded. Keep it safe!</p>
+
+            <button id="cancel-login" style="margin-top:20px; background:none; border:none; color:#666; cursor:pointer; font-size:14px;">Cancel</button>
         </div>
     `;
     document.body.appendChild(div);
 
-    // Event Listeners
-    document.getElementById('login-btn').onclick = async () => {
-        const seed = document.getElementById('seed-input').value;
-        if (!seed) return alert("Please enter a seed");
+    // --- Event: Upload .cromid ---
+    document.getElementById('cromid-file').onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-        await window.cromAuth.login(seed);
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            try {
+                const cromidData = JSON.parse(ev.target.result);
+                await window.cromAuth.loadIdentityAuto(cromidData);
 
-        // Persist (unsafe but standard for this POC)
-        sessionStorage.setItem('crom_identity', JSON.stringify({
-            pubKey: window.cromAuth.pubKeyHex,
-            seed: seed
-        }));
-
-        div.style.display = 'none';
-        updateAuthUI();
+                // Persist session
+                sessionStorage.setItem('crom_vault', JSON.stringify(cromidData));
+                div.style.display = 'none';
+                updateAuthUI();
+            } catch (err) {
+                alert("Failed to load identity: " + err.message);
+            }
+        };
+        reader.readAsText(file);
     };
 
+    // Hover effect on file label
+    const fileLabel = document.getElementById('file-upload-label');
+    fileLabel.onmouseenter = () => { fileLabel.style.borderColor = '#00d2ff'; fileLabel.style.color = '#fff'; };
+    fileLabel.onmouseleave = () => { fileLabel.style.borderColor = '#444'; fileLabel.style.color = '#ccc'; };
+
+    // --- Event: Generate New Identity ---
     document.getElementById('gen-btn').onclick = () => {
-        // Generate random seed
-        const randomBytes = new Uint8Array(32);
-        crypto.getRandomValues(randomBytes);
-        const seed = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        document.getElementById('seed-input').value = seed;
-        document.getElementById('seed-input').type = "text";
-        alert("This is your NEW Identity Key. Save it somewhere safe!");
+        try {
+            const cromidData = window.cromAuth.generateIdentityPlain();
+
+            // Download the file
+            const json = JSON.stringify(cromidData, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${cromidData.pubKey.substring(0, 8)}.cromid`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+
+            // Persist session
+            sessionStorage.setItem('crom_vault', JSON.stringify(cromidData));
+            div.style.display = 'none';
+            updateAuthUI();
+        } catch (err) {
+            alert("Failed to generate identity: " + err.message);
+        }
     };
 
+    // --- Cancel ---
     document.getElementById('cancel-login').onclick = () => {
         div.style.display = 'none';
     };
@@ -102,42 +137,67 @@ function showLogin() {
 
 function updateAuthUI() {
     const auth = window.cromAuth;
-    const nav = document.querySelector('.bottom-nav') || document.body;
 
-    // Remove existing badge
+    // Remove existing floating badge
     const existing = document.getElementById('auth-badge');
     if (existing) existing.remove();
 
+    // Update sidebar identity (if present on page)
+    const sidebarIdentity = document.getElementById('sidebar-identity');
+
     if (auth.pubKeyHex) {
-        const badge = document.createElement('div');
-        badge.id = 'auth-badge';
-        badge.style.cssText = `
-            position: fixed; bottom: 90px; right: 20px;
-            background: rgba(0, 255, 65, 0.1); border: 1px solid #00ff41;
-            color: #00ff41; padding: 8px 16px; border-radius: 20px;
-            font-size: 12px; font-weight: bold; cursor: pointer;
-            backdrop-filter: blur(5px); z-index: 1000;
-        `;
-        badge.innerHTML = `Ident: @${auth.pubKeyHex.substring(0, 6)}...`;
-        badge.onclick = () => {
-            if (confirm("Logout?")) {
-                sessionStorage.removeItem('crom_identity');
-                window.location.reload();
-            }
-        };
-        document.body.appendChild(badge);
+        // ── LOGGED IN ──
+        const hue = parseInt(auth.pubKeyHex.substring(0, 2), 16);
+
+        // Update sidebar
+        if (sidebarIdentity) {
+            sidebarIdentity.innerHTML = `
+                <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(0,255,65,0.06); border:1px solid rgba(0,255,65,0.2); border-radius:8px; cursor:pointer;" onclick="if(confirm('Logout?')){sessionStorage.removeItem('crom_identity');sessionStorage.removeItem('crom_vault');window.location.reload();}">
+                    <span style="width:32px;height:32px;border-radius:50%;background:hsl(${hue},55%,45%);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">${auth.pubKeyHex.substring(0, 2).toUpperCase()}</span>
+                    <div style="min-width:0;">
+                        <div style="font-size:12px;font-weight:600;color:#4ade80;">● Online</div>
+                        <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@${auth.pubKeyHex.substring(0, 12)}…</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Floating badge for pages without sidebar
+        if (!sidebarIdentity) {
+            const badge = document.createElement('div');
+            badge.id = 'auth-badge';
+            badge.style.cssText = `
+                position: fixed; bottom: 90px; right: 20px;
+                background: rgba(0,255,65,0.1); border: 1px solid #00ff41;
+                color: #00ff41; padding: 8px 16px; border-radius: 20px;
+                font-size: 12px; font-weight: bold; cursor: pointer;
+                backdrop-filter: blur(5px); z-index: 1000;
+            `;
+            badge.innerHTML = `Ident: @${auth.pubKeyHex.substring(0, 6)}...`;
+            badge.onclick = () => {
+                if (confirm("Logout?")) {
+                    sessionStorage.removeItem('crom_identity');
+                    sessionStorage.removeItem('crom_vault');
+                    window.location.reload();
+                }
+            };
+            document.body.appendChild(badge);
+        }
     } else {
-        const loginBtn = document.createElement('div');
-        loginBtn.id = 'auth-badge';
-        loginBtn.style.cssText = `
-            position: fixed; bottom: 90px; right: 20px;
-            background: #00d2ff; color: black;
-            padding: 8px 16px; border-radius: 20px;
-            font-size: 12px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); z-index: 1000;
-        `;
-        loginBtn.innerText = "Login / Sign Up";
-        loginBtn.onclick = showLogin;
-        document.body.appendChild(loginBtn);
+        // ── NOT LOGGED IN ──
+        if (!sidebarIdentity) {
+            const loginBtn = document.createElement('div');
+            loginBtn.id = 'auth-badge';
+            loginBtn.style.cssText = `
+                position: fixed; bottom: 90px; right: 20px;
+                background: #00d2ff; color: black;
+                padding: 8px 16px; border-radius: 20px;
+                font-size: 12px; font-weight: bold; cursor: pointer;
+                box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); z-index: 1000;
+            `;
+            loginBtn.innerText = "Login / Sign Up";
+            loginBtn.onclick = showLogin;
+            document.body.appendChild(loginBtn);
+        }
     }
 }

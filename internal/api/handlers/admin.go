@@ -22,6 +22,12 @@ func (h *AdminHandler) HandleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.repo.IsAvailable() {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"total_nodes":0,"total_users":0,"active_nodes_24h":0,"status":"no_database"}`))
+		return
+	}
+
 	stats, err := h.repo.GetStats(r.Context())
 	if err != nil {
 		http.Error(w, "Failed to fetch stats", http.StatusInternalServerError)
@@ -213,3 +219,60 @@ func (h *AdminHandler) HandleDeleteNode(w http.ResponseWriter, r *http.Request) 
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+// --- Hash Banning (Block specific content by signature hash) ---
+
+func (h *AdminHandler) HandleListBannedHashes(w http.ResponseWriter, r *http.Request) {
+	hashes, err := h.repo.GetBannedHashes(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to list banned hashes", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(hashes)
+}
+
+func (h *AdminHandler) HandleBanHash(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Hash   string `json:"hash"`
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if req.Hash == "" || len(req.Hash) != 64 {
+		http.Error(w, "Invalid hash: must be 64 hex characters (SHA256)", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.AddBannedHash(r.Context(), req.Hash, req.Reason); err != nil {
+		http.Error(w, "Failed to ban hash", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AdminHandler) HandleUnbanHash(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	hash := r.URL.Query().Get("hash")
+	if hash == "" {
+		http.Error(w, "Missing hash param", http.StatusBadRequest)
+		return
+	}
+	if err := h.repo.RemoveBannedHash(r.Context(), hash); err != nil {
+		http.Error(w, "Failed to unban hash", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+

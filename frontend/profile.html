@@ -1,162 +1,130 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
-    <title>Profile Identity</title>
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile | Crom Protocol</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: { crom: { DEFAULT: '#00d2ff', light: '#3a7bd5' }, surface: { 900: '#0a0a0f', 700: '#12121a' } }
+                }
+            }
+        }
+    </script>
     <style>
-        .profile-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding-top: 50px;
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0f0c29 40%, #1a1030 100%);
+            background-attachment: fixed;
         }
 
-        .profile-header {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 30px;
+        .node-card {
+            animation: fadeIn 0.3s ease;
         }
 
-        .profile-avi {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            margin: 0 auto 20px;
-            border: 4px solid var(--accent-color);
-            background: #444;
-        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
 
-        .pubkey-badge {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-family: monospace;
-            color: var(--text-secondary);
-            font-size: 14px;
-            display: inline-block;
-            margin-bottom: 20px;
-        }
-
-        .trust-score {
-            font-size: 20px;
-            font-weight: bold;
-            color: #00ff41;
-            margin-bottom: 20px;
-        }
-
-        .action-row {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-        }
-
-        .action-btn {
-            background: var(--accent-gradient);
-            border: none;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 30px;
-            font-weight: bold;
-            cursor: pointer;
-            text-decoration: none;
-            transition: transform 0.2s;
-        }
-
-        .action-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .feed-section h3 {
-            border-bottom: 1px solid var(--glass-border);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            to {
+                opacity: 1;
+            }
         }
     </style>
 </head>
 
-<body>
-    <div class="container profile-container">
-        <div id="profile-content">
-            Loading Profile...
-        </div>
+<body class="font-sans text-gray-100 min-h-screen">
 
-        <div class="feed-section">
-            <h3>Recent Activity</h3>
-            <div id="user-feed"></div>
+    <!-- Top Nav -->
+    <nav
+        class="sticky top-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-surface-900/80 backdrop-blur-xl border-b border-white/5">
+        <a href="index.html"
+            class="text-gray-400 hover:text-white transition text-sm flex items-center gap-1"><span>←</span> Feed</a>
+        <span
+            class="text-lg font-bold bg-gradient-to-r from-crom to-crom-light bg-clip-text text-transparent">Profile</span>
+        <div class="w-16"></div>
+    </nav>
+
+    <div class="max-w-2xl mx-auto px-4 py-8">
+        <div id="profile-content" class="text-center text-gray-500 py-20">Loading Profile…</div>
+
+        <!-- User Feed -->
+        <div class="mt-8">
+            <h3 class="text-lg font-semibold text-white mb-4 pb-3 border-b border-white/5">Recent Activity</h3>
+            <div id="user-feed" class="space-y-4"></div>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="js/lib/nacl.min.js"></script>
     <script src="js/lib/nacl-util.min.js"></script>
     <script src="js/lib/ed2curve.min.js"></script>
     <script src="js/sdk/auth.js"></script>
     <script src="js/sdk/client.js"></script>
     <script src="js/ui_login.js"></script>
-    <script src="js/ui_dm.js"></script>
     <script src="js/ui_server.js"></script>
-    <script src="js/api.js"></script>
 
     <script>
         const params = new URLSearchParams(window.location.search);
         const pubkey = params.get('pubkey');
 
         if (!pubkey) {
-            document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px'>No Identity Specified</h1>";
-            throw new Error("No pubkey");
-        }
-
-        // Render Header
-        const hue = parseInt(pubkey.substring(0, 2), 16);
-        const trust = Math.floor(Math.random() * 100);
-
-        document.getElementById('profile-content').innerHTML = `
-            <div class="profile-header">
-                <div class="profile-avi" style="background: hsl(${hue}, 60%, 50%)"></div>
-                <h1>Identity ${pubkey.substring(0, 8)}</h1>
-                <div class="pubkey-badge">${pubkey}</div>
-                <div class="trust-score">🛡️ Trust Score: ${trust}/100</div>
-                
-                <div class="action-row">
-                    <a href="chat.html?peer=${pubkey}" class="action-btn">💬 Send Message</a>
-                    <button class="action-btn" style="background:rgba(255,255,255,0.1)">Copy Key</button>
-                    ${pubkey === window.identityManager.pubKeyHex ? '<button class="action-btn" style="background:red">Edit Profile</button>' : ''}
-                </div>
-            </div>
-        `;
-
-        // Fetch User Feed
-        fetchNodes({ authors: [pubkey] }).then(nodes => {
-            const feed = document.getElementById('user-feed');
-            if (nodes.length === 0) {
-                feed.innerHTML = "<div style='text-align:center; color:#666'>No public activity recorded.</div>";
-                return;
-            }
-
-            nodes.forEach(node => {
-                const div = document.createElement('div');
-                div.className = 'node-card';
-                div.onclick = () => {
-                    if (node.kind === 'video') window.location.href = `watch.html?id=${node.id}`;
-                    else window.location.href = `thread.html?id=${node.id}`;
-                };
-
-                let content = node.payload.title || node.payload.content || node.payload.text || "Content";
-                div.innerHTML = `
-                    <div class="node-meta">
-                        <span>${node.kind.toUpperCase()}</span>
-                        <span>${new Date(node.claimed_at).toLocaleDateString()}</span>
+            document.getElementById('profile-content').innerHTML = `
+                <div class="py-20 text-center">
+                    <span class="text-5xl mb-4 block">👤</span>
+                    <h2 class="text-xl font-bold text-white mb-2">No Identity Specified</h2>
+                    <a href="index.html" class="text-crom hover:underline text-sm">← Back to Feed</a>
+                </div>`;
+        } else {
+            const hue = parseInt(pubkey.substring(0, 2), 16);
+            const isMe = window.cromAuth && window.cromAuth.pubKeyHex === pubkey;
+            document.getElementById('profile-content').innerHTML = `
+                <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-8 text-center">
+                    <!-- Avatar -->
+                    <div class="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-bold text-white" style="background: hsl(${hue}, 55%, 45%)">
+                        ${pubkey.substring(0, 2).toUpperCase()}
                     </div>
-                    <div class="node-content">${content}</div>
-                `;
-                feed.appendChild(div);
-            });
-        });
+                    <h1 class="text-2xl font-bold text-white mb-2">Identity ${pubkey.substring(0, 8)}</h1>
+                    <div class="inline-block bg-black/40 px-4 py-1.5 rounded-full text-xs font-mono text-gray-400 mb-4 max-w-full overflow-hidden text-ellipsis">${pubkey}</div>
+
+                    <!-- Actions -->
+                    <div class="flex flex-wrap justify-center gap-3 mt-4">
+                        <a href="chat.html?peer=${pubkey}" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-crom to-crom-light text-black font-semibold text-sm hover:opacity-90 transition">💬 Message</a>
+                        <button onclick="navigator.clipboard.writeText('${pubkey}'); this.textContent='✅ Copied!'" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm hover:bg-white/10 transition">📋 Copy Key</button>
+                        ${isMe ? '<button class="px-5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">Edit Profile</button>' : ''}
+                    </div>
+                </div>`;
+
+            // Load user feed
+            if (window.cromClient) {
+                window.cromClient.query({ authors: [pubkey] }).then(nodes => {
+                    const feed = document.getElementById('user-feed');
+                    if (!nodes || nodes.length === 0) {
+                        feed.innerHTML = '<div class="text-center text-gray-500 py-10">No public activity recorded.</div>';
+                        return;
+                    }
+                    nodes.forEach(node => {
+                        const content = node.payload?.title || node.payload?.content || node.payload?.text || 'Content';
+                        feed.innerHTML += `
+                            <a href="thread.html?id=${node.id}" class="node-card block bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:border-white/10 hover:bg-white/[0.05] transition cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                    <span class="px-2 py-0.5 rounded bg-crom/10 text-crom text-[11px] font-medium">${(node.kind || 'text').toUpperCase()}</span>
+                                    <span>${new Date(node.claimed_at).toLocaleDateString()}</span>
+                                </div>
+                                <div class="text-gray-200 text-sm line-clamp-3">${content}</div>
+                            </a>`;
+                    });
+                }).catch(() => {
+                    document.getElementById('user-feed').innerHTML = '<div class="text-center text-gray-500 py-10">Could not load activity.</div>';
+                });
+            }
+        }
     </script>
 </body>
 

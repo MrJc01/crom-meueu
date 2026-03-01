@@ -26,7 +26,8 @@ class DMManager {
             // 3. Publish to API with "recipient:KEY" tag
             const signedPayload = await this.buildSignedPayload(encryptedPayload, ["recipient:" + recipientPubHex]);
 
-            const resp = await fetch(getPublishURL(), { // Use dynamic URL
+            const baseUrl = (window.serverManager ? window.serverManager.currentServer : window.location.origin);
+            const resp = await fetch(baseUrl + '/v1/publish', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(signedPayload)
@@ -80,8 +81,9 @@ class DMManager {
 
         const myTag = "recipient:" + this.im.pubKeyHex;
 
-        // Use Global API_URL from api.js (Dynamic)
-        const response = await fetch(API_URL, {
+        // Use dynamic server URL
+        const baseUrl = (window.serverManager ? window.serverManager.currentServer : window.location.origin);
+        const response = await fetch(baseUrl + '/v1/query', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

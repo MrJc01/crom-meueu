@@ -1,98 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
-    <title>Post Detail</title>
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thread | Crom Protocol</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: { crom: { DEFAULT: '#00d2ff', light: '#3a7bd5' }, surface: { 900: '#0a0a0f', 700: '#12121a' } }
+                }
+            }
+        }
+    </script>
     <style>
-        .thread-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding-top: 40px;
-        }
-
-        .main-post {
-            border-bottom: 1px solid var(--glass-border);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-
-        .author-row {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .avi-lg {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: #555;
-        }
-
-        .author-name {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-
-        .author-handle {
-            color: var(--text-secondary);
-        }
-
-        .post-body {
-            font-size: 22px;
-            line-height: 1.5;
-            color: var(--text-color);
-            margin-bottom: 20px;
-        }
-
-        .post-meta {
-            color: var(--text-secondary);
-            font-size: 15px;
-            padding: 15px 0;
-            border-top: 1px solid var(--glass-border);
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .comments-section h3 {
-            margin-bottom: 20px;
-        }
-
-        .comment {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0f0c29 40%, #1a1030 100%);
+            background-attachment: fixed;
         }
     </style>
 </head>
 
-<body>
-    <div class="container thread-container">
-        <div id="main-content">
-            Loading...
-        </div>
+<body class="font-sans text-gray-100 min-h-screen">
 
-        <div class="comments-section">
-            <h3>Replies</h3>
-            <!-- Fake Comments -->
-            <div class="comment">
-                <div class="avi-lg" style="width:40px; height:40px; background:#444"></div>
-                <div>
-                    <div style="font-weight:700; margin-bottom:5px">Random User</div>
-                    <div style="color:#ccc">This is decentralized? Mind blown. 🤯</div>
-                </div>
-            </div>
-            <div class="comment">
-                <div class="avi-lg" style="width:40px; height:40px; background:#666"></div>
-                <div>
-                    <div style="font-weight:700; margin-bottom:5px">Dev Bot</div>
-                    <div style="color:#ccc">Great content! Thanks for sharing.</div>
-                </div>
+    <nav
+        class="sticky top-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-surface-900/80 backdrop-blur-xl border-b border-white/5">
+        <a href="index.html"
+            class="text-gray-400 hover:text-white transition text-sm flex items-center gap-1"><span>←</span> Feed</a>
+        <span
+            class="text-lg font-bold bg-gradient-to-r from-crom to-crom-light bg-clip-text text-transparent">Thread</span>
+        <div class="w-16"></div>
+    </nav>
+
+    <div class="max-w-2xl mx-auto px-4 py-8">
+        <div id="main-content" class="text-center text-gray-500 py-20">Loading…</div>
+
+        <!-- Replies -->
+        <div class="mt-8" id="replies-section">
+            <h3 class="text-lg font-semibold text-white mb-4 pb-3 border-b border-white/5">Replies</h3>
+            <div id="replies-list" class="space-y-4">
+                <div class="text-center text-gray-500 py-6 text-sm">No replies yet. Be the first to comment!</div>
             </div>
         </div>
     </div>
@@ -102,44 +53,68 @@
     <script src="js/lib/ed2curve.min.js"></script>
     <script src="js/sdk/auth.js"></script>
     <script src="js/sdk/client.js"></script>
+    <script src="js/ui_login.js"></script>
     <script src="js/ui_server.js"></script>
-    <script src="js/api.js"></script>
+
     <script>
         const params = new URLSearchParams(window.location.search);
         const nodeId = params.get('id');
-
         if (!nodeId) history.back();
 
-        fetchNodes({ ids: [nodeId] }).then(nodes => {
-            if (nodes.length === 0) return;
-            const node = nodes[0];
-            const main = document.getElementById('main-content');
-            const hue = parseInt(node.author_pubkey.substring(0, 2), 16);
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.cromClient) return;
+            window.cromClient.query({ ids: [nodeId] }).then(nodes => {
+                if (!nodes || nodes.length === 0) {
+                    document.getElementById('main-content').innerHTML = '<div class="py-20 text-center text-gray-500">Node not found</div>';
+                    return;
+                }
+                const node = nodes[0];
+                const hue = parseInt(node.author_pubkey.substring(0, 2), 16);
+                let content = node.payload?.content || node.payload?.text || node.payload?.title || '';
 
-            let content = node.payload.content || node.payload.text || node.payload.title;
+                if (node.kind === 'article' && node.payload?.title) {
+                    content = `<h2 class="text-xl font-bold text-white mb-3">${node.payload.title}</h2><div class="text-gray-300 leading-relaxed">${node.payload.content || ''}</div>`;
+                }
 
-            // Render HTML if article
-            if (node.kind === 'article') {
-                content = `<h1>${node.payload.title}</h1><p>${node.payload.content}</p>`;
-            }
+                let media = '';
+                if (node.payload?.url) {
+                    const ytMatch = node.payload.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+                    if (ytMatch) media = `<div class="rounded-xl overflow-hidden my-4 bg-black"><iframe src="https://www.youtube.com/embed/${ytMatch[1]}" class="w-full aspect-video" frameborder="0" allowfullscreen></iframe></div>`;
+                    else if (node.kind?.startsWith('image')) media = `<div class="rounded-xl overflow-hidden my-4"><img src="${node.payload.url}" class="w-full max-h-[500px] object-cover" loading="lazy" onerror="this.style.display='none'"></div>`;
+                }
 
-            main.innerHTML = `
-                 <div class="main-post">
-                    <div class="author-row">
-                        <div class="avi-lg" style="background: hsl(${hue}, 60%, 50%)"></div>
-                        <div>
-                             <div class="author-name">User ${node.author_pubkey.substring(0, 6)}</div>
-                             <div class="author-handle">@${node.author_pubkey}</div>
+                document.getElementById('main-content').innerHTML = `
+                    <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 md:p-8">
+                        <!-- Author -->
+                        <div class="flex items-center gap-3 mb-5">
+                            <a href="profile.html?pubkey=${node.author_pubkey}" class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white flex-shrink-0" style="background: hsl(${hue}, 55%, 45%)">
+                                ${node.author_pubkey.substring(0, 2).toUpperCase()}
+                            </a>
+                            <div>
+                                <a href="profile.html?pubkey=${node.author_pubkey}" class="font-semibold text-white hover:underline">User ${node.author_pubkey.substring(0, 6)}</a>
+                                <div class="text-xs text-gray-500 font-mono truncate max-w-[200px] md:max-w-none">@${node.author_pubkey}</div>
+                            </div>
+                            <span class="ml-auto px-2.5 py-1 rounded-full bg-crom/10 text-crom text-xs font-medium">${(node.kind || 'text').toUpperCase()}</span>
                         </div>
-                    </div>
-                    <div class="post-body">
-                        ${content}
-                    </div>
-                    <div class="post-meta">
-                        ${new Date(node.claimed_at).toLocaleTimeString()} · ${new Date(node.claimed_at).toLocaleDateString()} · Crom Protocol
-                    </div>
-                 </div>
-            `;
+
+                        ${media}
+
+                        <!-- Body -->
+                        <div class="text-lg leading-relaxed text-gray-200 mb-5">${content || '<span class="text-gray-500 italic">Empty payload</span>'}</div>
+
+                        <!-- Meta -->
+                        <div class="flex flex-wrap items-center gap-2 text-sm text-gray-500 pt-4 border-t border-white/5">
+                            <span>${new Date(node.claimed_at).toLocaleTimeString()}</span>
+                            <span>·</span>
+                            <span>${new Date(node.claimed_at).toLocaleDateString()}</span>
+                            <span>·</span>
+                            <span class="text-crom">Crom Protocol</span>
+                            <span class="ml-auto font-mono text-xs text-gray-600" title="${node.id}">ID: ${(node.id || '').substring(0, 8)}</span>
+                        </div>
+                    </div>`;
+            }).catch(e => {
+                document.getElementById('main-content').innerHTML = `<div class="py-20 text-center text-red-400">Error: ${e.message}</div>`;
+            });
         });
     </script>
 </body>

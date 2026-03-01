@@ -15,9 +15,14 @@ func NewAdminRepository(pool *pgxpool.Pool) *AdminRepository {
 	return &AdminRepository{pool: pool}
 }
 
+func (r *AdminRepository) IsAvailable() bool {
+	return r.pool != nil
+}
+
 // --- Whitelist ---
 
 func (r *AdminRepository) IsWhitelisted(ctx context.Context, pubKey string) (bool, error) {
+	if r.pool == nil { return false, nil }
 	var exists bool
 	query := "SELECT EXISTS(SELECT 1 FROM whitelist WHERE public_key = $1)"
 	err := r.pool.QueryRow(ctx, query, pubKey).Scan(&exists)
@@ -28,16 +33,19 @@ func (r *AdminRepository) IsWhitelisted(ctx context.Context, pubKey string) (boo
 }
 
 func (r *AdminRepository) AddToWhitelist(ctx context.Context, pubKey string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
 	_, err := r.pool.Exec(ctx, "INSERT INTO whitelist (public_key) VALUES ($1) ON CONFLICT DO NOTHING", pubKey)
 	return err
 }
 
 func (r *AdminRepository) RemoveFromWhitelist(ctx context.Context, pubKey string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
 	_, err := r.pool.Exec(ctx, "DELETE FROM whitelist WHERE public_key = $1", pubKey)
 	return err
 }
 
 func (r *AdminRepository) GetWhitelist(ctx context.Context) ([]string, error) {
+	if r.pool == nil { return []string{}, nil }
 	rows, err := r.pool.Query(ctx, "SELECT public_key FROM whitelist ORDER BY created_at DESC")
 	if err != nil {
 		return nil, err
@@ -58,6 +66,7 @@ func (r *AdminRepository) GetWhitelist(ctx context.Context) ([]string, error) {
 // --- Banned Words ---
 
 func (r *AdminRepository) GetBannedWords(ctx context.Context) ([]string, error) {
+	if r.pool == nil { return []string{}, nil }
 	rows, err := r.pool.Query(ctx, "SELECT word FROM banned_words")
 	if err != nil {
 		return nil, err
@@ -79,6 +88,7 @@ func (r *AdminRepository) GetBannedWords(ctx context.Context) ([]string, error) 
 
 // GetBannedUsers retrieves the list of all banned public keys from the database.
 func (r *AdminRepository) GetBannedUsers(ctx context.Context) ([]string, error) {
+	if r.pool == nil { return []string{}, nil }
 	rows, err := r.pool.Query(ctx, "SELECT public_key FROM banned_users ORDER BY created_at DESC")
 	if err != nil {
 		return nil, err
@@ -97,11 +107,13 @@ func (r *AdminRepository) GetBannedUsers(ctx context.Context) ([]string, error) 
 }
 
 func (r *AdminRepository) AddBannedWord(ctx context.Context, word string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
 	_, err := r.pool.Exec(ctx, "INSERT INTO banned_words (word) VALUES ($1) ON CONFLICT DO NOTHING", word)
 	return err
 }
 
 func (r *AdminRepository) RemoveBannedWord(ctx context.Context, word string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
 	_, err := r.pool.Exec(ctx, "DELETE FROM banned_words WHERE word = $1", word)
 	return err
 }
@@ -114,6 +126,7 @@ type SystemStats struct {
 }
 
 func (r *AdminRepository) GetStats(ctx context.Context) (*SystemStats, error) {
+	if r.pool == nil { return &SystemStats{}, nil }
 	stats := &SystemStats{}
 
 	// Total Nodes
@@ -137,6 +150,7 @@ func (r *AdminRepository) GetStats(ctx context.Context) (*SystemStats, error) {
 // --- Banned Users ---
 
 func (r *AdminRepository) IsBannedUser(ctx context.Context, pubKey string) (bool, error) {
+	if r.pool == nil { return false, nil }
 	var exists bool
 	query := "SELECT EXISTS(SELECT 1 FROM banned_users WHERE public_key = $1)"
 	err := r.pool.QueryRow(ctx, query, pubKey).Scan(&exists)
@@ -147,11 +161,13 @@ func (r *AdminRepository) IsBannedUser(ctx context.Context, pubKey string) (bool
 }
 
 func (r *AdminRepository) BanUser(ctx context.Context, pubKey, reason string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
 	_, err := r.pool.Exec(ctx, "INSERT INTO banned_users (public_key, reason) VALUES ($1, $2) ON CONFLICT DO NOTHING", pubKey, reason)
 	return err
 }
 
 func (r *AdminRepository) UnbanUser(ctx context.Context, pubKey string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
 	_, err := r.pool.Exec(ctx, "DELETE FROM banned_users WHERE public_key = $1", pubKey)
 	return err
 }
@@ -159,6 +175,57 @@ func (r *AdminRepository) UnbanUser(ctx context.Context, pubKey string) error {
 // --- Content Moderation ---
 
 func (r *AdminRepository) DeleteNode(ctx context.Context, nodeID string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
 	_, err := r.pool.Exec(ctx, "DELETE FROM nodes WHERE id = $1", nodeID)
 	return err
+}
+
+// --- Banned Hashes (Content Block by Signature Hash) ---
+
+func (r *AdminRepository) IsBannedHash(ctx context.Context, hash string) (bool, error) {
+	if r.pool == nil { return false, nil }
+	var exists bool
+	query := "SELECT EXISTS(SELECT 1 FROM banned_hashes WHERE hash = $1)"
+	err := r.pool.QueryRow(ctx, query, hash).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check banned hash: %w", err)
+	}
+	return exists, nil
+}
+
+func (r *AdminRepository) AddBannedHash(ctx context.Context, hash, reason string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
+	_, err := r.pool.Exec(ctx,
+		"INSERT INTO banned_hashes (hash, reason) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+		hash, reason,
+	)
+	return err
+}
+
+func (r *AdminRepository) RemoveBannedHash(ctx context.Context, hash string) error {
+	if r.pool == nil { return fmt.Errorf("database not available") }
+	_, err := r.pool.Exec(ctx, "DELETE FROM banned_hashes WHERE hash = $1", hash)
+	return err
+}
+
+func (r *AdminRepository) GetBannedHashes(ctx context.Context) ([]map[string]string, error) {
+	if r.pool == nil { return []map[string]string{}, nil }
+	rows, err := r.pool.Query(ctx, "SELECT hash, reason FROM banned_hashes ORDER BY created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hashes []map[string]string
+	for rows.Next() {
+		var hash, reason string
+		if err := rows.Scan(&hash, &reason); err != nil {
+			return nil, err
+		}
+		hashes = append(hashes, map[string]string{"hash": hash, "reason": reason})
+	}
+	if hashes == nil {
+		hashes = []map[string]string{}
+	}
+	return hashes, nil
 }

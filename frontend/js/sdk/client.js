@@ -46,7 +46,10 @@ class CromClient {
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-MeuEu-Author': nodeData.author_pubkey || ''
+                },
                 body: JSON.stringify(nodeData)
             });
 

@@ -9,6 +9,10 @@ services:
     environment:
       - DATABASE_URL=postgres://crom:crom_secret@db:5432/crom_db?sslmode=disable
       - SERVER_MODE=NORMAL # Options: NORMAL, WHITELIST
+      - NETWORK_ID=meueu-mainnet-v1
+      - SYNC_EXTERNAL_POSTS=true
+      # - SERVER_URL=https://your-domain.com
+      # - SEED_NODES=https://peer1.example.com,https://peer2.example.com
       # - ADMIN_SECRET_HASH=... (Set this in .env)
     depends_on:
       - db

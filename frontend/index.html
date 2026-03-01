@@ -1,100 +1,224 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crom Portal | Choose Your Reality</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Crom Protocol | Feed Universal</title>
+    <meta name="description" content="The Decentralized Social Layer. One Identity. Infinite Content.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        crom: { DEFAULT: '#00d2ff', light: '#3a7bd5', dark: '#0099cc' },
+                        surface: { 900: '#0a0a0f', 800: '#0f0c29', 700: '#12121a', 600: '#1a1a25', 500: '#222233' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0f0c29 40%, #1a1030 100%);
+            background-attachment: fixed;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .node-card {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
+            animation: spin 0.8s linear infinite;
+        }
+    </style>
 </head>
 
-<body>
-    <div class="container" style="text-align:center; padding-top:60px">
-        <h1
-            style="font-size:3em; margin-bottom:10px; background: linear-gradient(to right, #fff, #00d2ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            Crom Protocol</h1>
-        <p
-            style="font-size:1.2em; color:#ccc; margin-bottom:60px; max-width:600px; margin-left:auto; margin-right:auto;">
-            The Decentralized Social Layer.<br>
-            One Identity. Infinite Interfaces.
-        </p>
+<body class="font-sans text-gray-100 min-h-screen">
 
-        <div class="portal-grid">
-            <a href="publish.html" class="portal-card"
-                style="border-color: #00d2ff; background: rgba(0, 210, 255, 0.05)">
-                <span class="portal-icon">📢</span>
-                <h2>New Post</h2>
-                <p>Broadcast to the network</p>
-            </a>
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="hidden md:flex flex-col w-64 bg-surface-700/80 backdrop-blur-xl border-r border-white/5 fixed top-0 left-0 h-screen z-50 overflow-y-auto transition-transform">
+            <!-- Brand -->
+            <div class="flex items-center gap-3 px-5 py-6">
+                <span
+                    class="text-3xl bg-gradient-to-r from-crom to-crom-light bg-clip-text text-transparent font-black">◈</span>
+                <span
+                    class="text-xl font-extrabold bg-gradient-to-r from-crom to-crom-light bg-clip-text text-transparent tracking-tight">Crom</span>
+            </div>
 
-            <a href="twitter.html" class="portal-card">
-                <span class="portal-icon">🐦</span>
-                <h2>Micro-Blog</h2>
-                <p>Feed timeline view</p>
-            </a>
+            <!-- Feed Filters -->
+            <nav class="px-3 mb-6">
+                <h4 class="text-[11px] uppercase tracking-widest text-gray-500 px-3 mb-2">Feed</h4>
+                <button data-filter="all"
+                    class="filter-btn active flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all text-crom bg-crom/10 font-semibold">
+                    <span class="text-lg w-6 text-center">🌐</span> All
+                </button>
+                <button data-filter="text"
+                    class="filter-btn flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all text-gray-400 hover:text-white hover:bg-white/5">
+                    <span class="text-lg w-6 text-center">📝</span> Text
+                </button>
+                <button data-filter="video"
+                    class="filter-btn flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all text-gray-400 hover:text-white hover:bg-white/5">
+                    <span class="text-lg w-6 text-center">📹</span> Video
+                </button>
+                <button data-filter="image"
+                    class="filter-btn flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all text-gray-400 hover:text-white hover:bg-white/5">
+                    <span class="text-lg w-6 text-center">📸</span> Image
+                </button>
+                <button data-filter="link"
+                    class="filter-btn flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all text-gray-400 hover:text-white hover:bg-white/5">
+                    <span class="text-lg w-6 text-center">🔗</span> Links
+                </button>
+            </nav>
 
-            <a href="instagram.html" class="portal-card">
-                <span class="portal-icon">📸</span>
-                <h2>InstaCrom</h2>
-                <p>Photo Feed</p>
-            </a>
+            <!-- Tools -->
+            <nav class="px-3 mb-6">
+                <h4 class="text-[11px] uppercase tracking-widest text-gray-500 px-3 mb-2">Tools</h4>
+                <a href="publish.html"
+                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-crom to-crom-light text-black hover:opacity-90 transition mb-1">
+                    <span class="text-lg w-6 text-center">➕</span> Publish
+                </a>
+                <a href="inbox.html"
+                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
+                    <span class="text-lg w-6 text-center">🔐</span> Inbox
+                </a>
+                <a href="explorer.html"
+                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
+                    <span class="text-lg w-6 text-center">🔍</span> Explorer
+                </a>
+                <a href="chat.html"
+                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
+                    <span class="text-lg w-6 text-center">💬</span> Chat
+                </a>
+                <a href="admin.html"
+                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
+                    <span class="text-lg w-6 text-center">⚙️</span> Admin
+                </a>
+            </nav>
 
-            <a href="tiktok.html" class="portal-card">
-                <span class="portal-icon">📱</span>
-                <h2>Vertical Feed</h2>
-                <p>Immersive video scroll</p>
-            </a>
+            <!-- Footer -->
+            <div class="mt-auto px-3 pb-4 border-t border-white/5 pt-4 space-y-3">
+                <div id="sidebar-identity">
+                    <button onclick="showLogin()" id="sidebar-login-btn"
+                        class="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-semibold bg-crom/10 border border-crom/30 text-crom hover:bg-crom/20 transition">
+                        🔑 Login / Sign Up
+                    </button>
+                </div>
+                <div id="server-status"
+                    class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:bg-white/5 cursor-pointer transition">
+                    <span class="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0"></span>
+                    <span class="truncate">Connecting…</span>
+                </div>
+            </div>
+        </aside>
 
-            <a href="youtube.html" class="portal-card">
-                <span class="portal-icon">📺</span>
-                <h2>Video Grid</h2>
-                <p>Content discovery</p>
-            </a>
+        <!-- Main Content -->
+        <main class="flex-1 md:ml-64 min-w-0">
+            <!-- Header -->
+            <header
+                class="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 py-4 bg-surface-900/80 backdrop-blur-xl border-b border-white/5">
+                <h1
+                    class="text-lg md:text-xl font-bold bg-gradient-to-r from-crom to-crom-light bg-clip-text text-transparent">
+                    Feed Universal</h1>
+                <div class="flex items-center gap-3">
+                    <button onclick="app.loadFeed()"
+                        class="p-2 rounded-lg bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition text-lg"
+                        title="Refresh">↻</button>
+                    <a href="publish.html"
+                        class="hidden sm:flex items-center px-4 py-2 rounded-lg bg-gradient-to-r from-crom to-crom-light text-black font-semibold text-sm hover:opacity-90 transition">+
+                        Publish</a>
+                </div>
+            </header>
 
-            <a href="tabnews.html" class="portal-card">
-                <span class="portal-icon">📰</span>
-                <h2>Tech News</h2>
-                <p>Dense information</p>
-            </a>
-
-            <a href="facebook.html" class="portal-card">
-                <span class="portal-icon">👥</span>
-                <h2>Social Mix</h2>
-                <p>Classic layout</p>
-            </a>
-
-            <a href="inbox.html" class="portal-card">
-                <span class="portal-icon">🔐</span>
-                <h2>Inbox</h2>
-                <p>End-to-End Encrypted</p>
-            </a>
-
-            <a href="explorer.html" class="portal-card">
-                <span class="portal-icon">🔍</span>
-                <h2>Explorer</h2>
-                <p>Raw Data Inspector</p>
-            </a>
-
-            <a href="admin.html" class="portal-card" style="border-color: #ff3333; background: rgba(255, 51, 51, 0.05)">
-                <span class="portal-icon">⚠️</span>
-                <h2>Admin</h2>
-                <p>God Mode</p>
-            </a>
-        </div>
+            <!-- Feed -->
+            <div id="feed" class="max-w-2xl mx-auto px-4 md:px-8 py-6 space-y-4">
+                <div class="flex flex-col items-center gap-4 py-20 text-gray-500 text-sm">
+                    <div class="w-8 h-8 border-2 border-white/10 border-t-crom rounded-full spinner"></div>
+                    <span>Loading nodes…</span>
+                </div>
+            </div>
+        </main>
     </div>
+
+    <!-- Mobile Toggle -->
+    <button id="mobile-toggle"
+        onclick="document.getElementById('sidebar').classList.toggle('hidden'); document.getElementById('sidebar').classList.toggle('flex')"
+        class="md:hidden fixed bottom-5 right-5 z-[200] w-12 h-12 rounded-full bg-gradient-to-r from-crom to-crom-light text-black font-bold text-xl flex items-center justify-center shadow-lg shadow-crom/30">☰</button>
+
+    <!-- SDK -->
     <script src="js/lib/nacl.min.js"></script>
     <script src="js/lib/nacl-util.min.js"></script>
     <script src="js/lib/ed2curve.min.js"></script>
-
-    <!-- SDK -->
     <script src="js/sdk/auth.js"></script>
     <script src="js/sdk/client.js"></script>
-
-    <!-- App -->
     <script src="js/ui_login.js"></script>
-    <script src="js/ui_dm.js"></script>
     <script src="js/ui_server.js"></script>
-    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+
+    <script>
+        // Filter button interactions
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => {
+                    b.classList.remove('text-crom', 'bg-crom/10', 'font-semibold');
+                    b.classList.add('text-gray-400');
+                });
+                btn.classList.add('text-crom', 'bg-crom/10', 'font-semibold');
+                btn.classList.remove('text-gray-400');
+            });
+        });
+
+        // Server status
+        document.addEventListener('DOMContentLoaded', () => {
+            const statusEl = document.getElementById('server-status');
+            if (window.serverManager) {
+                const server = window.serverManager.currentServer;
+                const isLocal = server.includes('localhost');
+                statusEl.innerHTML = `
+                    <span class="w-2 h-2 rounded-full ${isLocal ? 'bg-green-400 shadow-green-400/50 shadow-sm' : 'bg-crom shadow-crom/50 shadow-sm'} flex-shrink-0"></span>
+                    <span class="truncate">${server.replace('http://', '').replace('https://', '')}</span>
+                `;
+                statusEl.onclick = () => window.serverManager.showModal();
+            }
+        });
+    </script>
 </body>
 
 </html>

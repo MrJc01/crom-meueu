@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS peers (
+    id UUID PRIMARY KEY,
+    url VARCHAR(512) NOT NULL,
+    public_key VARCHAR(255) NOT NULL UNIQUE,
+    last_seen TIMESTAMP NOT NULL,
+    reputation INT NOT NULL DEFAULT 100
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_peers_url ON peers(url);

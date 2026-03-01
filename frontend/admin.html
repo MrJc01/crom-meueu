@@ -1,109 +1,146 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CROM /// ADMIN - GOD MODE</title>
-    <link rel="stylesheet" href="css/admin.css">
+    <title>Admin | Crom Protocol</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: { crom: { DEFAULT: '#00d2ff', light: '#3a7bd5' }, surface: { 900: '#0a0a0f', 700: '#12121a', 600: '#1a1a25' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0f0c29 40%, #1a1030 100%);
+            background-attachment: fixed;
+        }
+    </style>
 </head>
 
-<body>
+<body class="font-sans text-gray-100 min-h-screen">
 
-    <div class="container">
-        <header>
-            <h1>System Override // Admin</h1>
-            <div id="connection-status">STATUS: UNAUTHORIZED</div>
-        </header>
+    <nav
+        class="sticky top-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-surface-900/80 backdrop-blur-xl border-b border-white/5">
+        <a href="index.html"
+            class="text-gray-400 hover:text-white transition text-sm flex items-center gap-1"><span>←</span> Feed</a>
+        <span class="text-lg font-bold text-red-400">⚠️ Admin Panel</span>
+        <div id="connection-status" class="text-xs px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 font-semibold">
+            UNAUTHORIZED</div>
+    </nav>
 
-        <!-- Login Section -->
-        <div id="auth-section">
-            <h2>Authenticate</h2>
-            <input type="password" id="admin-token" placeholder="Enter System Token">
-            <button onclick="AdminApp.login()">Connect</button>
+    <div class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+
+        <!-- Auth -->
+        <div id="auth-section" class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-8 text-center">
+            <h2 class="text-xl font-bold text-white mb-2">🔐 Authenticate</h2>
+            <p class="text-gray-500 text-sm mb-6">Enter your admin token to access system controls.</p>
+            <div class="max-w-sm mx-auto space-y-3">
+                <input type="password" id="admin-token" placeholder="System Token"
+                    class="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-red-500/50 focus:outline-none focus:ring-1 focus:ring-red-500/30 transition text-center"
+                    onkeydown="if(event.key==='Enter')AdminApp.login()">
+                <button onclick="AdminApp.login()"
+                    class="w-full py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition">Connect</button>
+            </div>
         </div>
 
-        <!-- Dashboard Section -->
-        <div id="dashboard-section" class="hidden">
+        <!-- Dashboard -->
+        <div id="dashboard-section" class="hidden space-y-6">
 
             <!-- Stats -->
-            <div class="card">
-                <h3>System Vitality</h3>
-                <div class="stat-grid" id="stats-container">
-                    <div class="stat-item">
-                        <div class="stat-label">Nodes</div>
-                        <div class="stat-value" id="stat-nodes">0</div>
+            <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-white">📊 System Stats</h3>
+                    <button onclick="AdminApp.loadStats()"
+                        class="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition">Refresh</button>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-white/[0.03] rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-crom" id="stat-nodes">0</div>
+                        <div class="text-xs text-gray-500 mt-1">Nodes</div>
                     </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Users</div>
-                        <div class="stat-value" id="stat-users">0</div>
+                    <div class="bg-white/[0.03] rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-crom" id="stat-users">0</div>
+                        <div class="text-xs text-gray-500 mt-1">Users</div>
                     </div>
-                    <div class="stat-item">
-                        <div class="stat-label">24h Active</div>
-                        <div class="stat-value" id="stat-active">0</div>
+                    <div class="bg-white/[0.03] rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-crom" id="stat-active">0</div>
+                        <div class="text-xs text-gray-500 mt-1">24h Active</div>
                     </div>
                 </div>
-                <br>
-                <button onclick="AdminApp.loadStats()">Refresh</button>
             </div>
 
             <!-- Whitelist -->
-            <div class="card">
-                <h3>Access Control (Whitelist)</h3>
-                <div class="input-group">
-                    <input type="text" id="whitelist-input" placeholder="User Public Key (Hex)">
-                    <button onclick="AdminApp.addToWhitelist()">Grant Access</button>
+            <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                <h3 class="font-semibold text-white mb-4">✅ Whitelist</h3>
+                <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                    <input type="text" id="whitelist-input" placeholder="Public Key (hex)"
+                        class="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm font-mono placeholder-gray-500 focus:border-crom/50 focus:outline-none transition">
+                    <button onclick="AdminApp.addToWhitelist()"
+                        class="px-4 py-2.5 rounded-xl bg-crom text-black font-semibold text-sm hover:opacity-90 transition whitespace-nowrap">Grant
+                        Access</button>
                 </div>
-                <ul id="whitelist-list">
-                    <!-- Items -->
-                </ul>
-            </div>
-
-            <!-- Audit Log -->
-            <div class="card">
-                <h3>Audit Log (Local Session)</h3>
-                <ul id="audit-log-list"
-                    style="font-family:monospace; font-size:12px; color:#aaa; list-style:none; padding:0">
-                    <li>--- System Initialized ---</li>
-                </ul>
+                <ul id="whitelist-list" class="space-y-2 text-sm"></ul>
             </div>
 
             <!-- Ban User -->
-            <div class="card" style="border-color: #ff3333; background: rgba(255, 51, 51, 0.05)">
-                <h3>⛔ User Blacklist (Ban)</h3>
-                <div class="input-group">
-                    <input type="text" id="banuser-input" placeholder="User Public Key (Hex)">
-                    <input type="text" id="banuser-reason" placeholder="Reason (e.g. Spam)" style="margin-top:5px">
-                    <button onclick="AdminApp.banUser()" class="danger">Ban User</button>
+            <div class="bg-red-500/[0.03] border border-red-500/20 rounded-2xl p-6">
+                <h3 class="font-semibold text-red-400 mb-4">⛔ Ban User</h3>
+                <div class="space-y-2 mb-4">
+                    <input type="text" id="banuser-input" placeholder="Public Key (hex)"
+                        class="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm font-mono placeholder-gray-500 focus:border-red-500/50 focus:outline-none transition">
+                    <input type="text" id="banuser-reason" placeholder="Reason (e.g. Spam)"
+                        class="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-500 focus:border-red-500/50 focus:outline-none transition">
+                    <button onclick="AdminApp.banUser()"
+                        class="px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition">Ban
+                        User</button>
                 </div>
-                <ul id="banuser-list">
-                    <!-- Items -->
-                </ul>
+                <ul id="banuser-list" class="space-y-2 text-sm"></ul>
             </div>
 
             <!-- Delete Node -->
-            <div class="card" style="border-color: #ff3333; background: rgba(255, 51, 51, 0.05)">
-                <h3>🗑️ Delete Content</h3>
-                <div class="input-group">
-                    <input type="text" id="deletenode-input" placeholder="Node ID (UUID)">
-                    <button onclick="AdminApp.deleteNode()" class="danger">Delete Node</button>
+            <div class="bg-red-500/[0.03] border border-red-500/20 rounded-2xl p-6">
+                <h3 class="font-semibold text-red-400 mb-4">🗑️ Delete Content</h3>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="deletenode-input" placeholder="Node ID (UUID)"
+                        class="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm font-mono placeholder-gray-500 focus:border-red-500/50 focus:outline-none transition">
+                    <button onclick="AdminApp.deleteNode()"
+                        class="px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition whitespace-nowrap">Delete</button>
                 </div>
             </div>
 
             <!-- Banned Words -->
-            <div class="card">
-                <h3>Content Filter (Banned Words)</h3>
-                <div class="input-group">
-                    <input type="text" id="banword-input" placeholder="Word to Ban">
-                    <button onclick="AdminApp.banWord()" class="danger">Ban Word</button>
+            <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                <h3 class="font-semibold text-white mb-4">🚫 Content Filter (Banned Words)</h3>
+                <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                    <input type="text" id="banword-input" placeholder="Word to ban"
+                        class="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-500 focus:border-red-500/50 focus:outline-none transition">
+                    <button onclick="AdminApp.banWord()"
+                        class="px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition whitespace-nowrap">Ban
+                        Word</button>
                 </div>
-                <ul id="banword-list">
-                    <!-- Items -->
+                <ul id="banword-list" class="space-y-2 text-sm"></ul>
+            </div>
+
+            <!-- Audit Log -->
+            <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                <h3 class="font-semibold text-white mb-4">📋 Audit Log</h3>
+                <ul id="audit-log-list" class="font-mono text-xs text-gray-500 space-y-1">
+                    <li>--- System Initialized ---</li>
                 </ul>
             </div>
 
-            <button onclick="AdminApp.logout()">Terminate Session</button>
-
+            <!-- Logout -->
+            <button onclick="AdminApp.logout()"
+                class="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 font-semibold hover:bg-white/10 hover:text-white transition">Terminate
+                Session</button>
         </div>
     </div>
 

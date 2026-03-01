@@ -1,142 +1,77 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
-    <title>Secure Chat</title>
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Chat | Crom Protocol</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: { crom: { DEFAULT: '#00d2ff', light: '#3a7bd5' }, surface: { 900: '#0a0a0f', 700: '#12121a', 600: '#1a1a25' } }
+                }
+            }
+        }
+    </script>
     <style>
-        .chat-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding-top: 20px;
-            height: 90vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .chat-header {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 15px;
-            border-radius: 12px 12px 0 0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .chat-window {
-            flex: 1;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--glass-border);
-            overflow-y: scroll;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .chat-input-area {
-            background: #1a1a1a;
-            padding: 15px;
-            border-radius: 0 0 12px 12px;
-            border: 1px solid #333;
-        }
-
-        .msg-bubble {
-            max-width: 70%;
-            padding: 12px 18px;
-            border-radius: 18px;
-            font-size: 15px;
-            line-height: 1.4;
-            position: relative;
-        }
-
-        .msg-sent {
-            align-self: flex-end;
-            background: #00d2ff;
-            color: black;
-            border-bottom-right-radius: 4px;
-        }
-
-        .msg-received {
-            align-self: flex-start;
-            background: #333;
-            color: white;
-            border-bottom-left-radius: 4px;
-        }
-
-        .server-mode-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            background: #111;
-            padding: 5px;
-            border-radius: 8px;
-        }
-
-        .mode-option {
-            flex: 1;
-            padding: 8px;
-            text-align: center;
-            font-size: 12px;
-            cursor: pointer;
-            border-radius: 4px;
-            color: #888;
-        }
-
-        .mode-option.active {
-            background: #333;
-            color: white;
-            font-weight: bold;
-        }
-
-        .direct-ip-input {
-            width: 100%;
-            background: #000;
-            border: 1px solid #333;
-            color: #00ff41;
-            padding: 5px;
-            font-family: monospace;
-            margin-bottom: 5px;
-            display: none;
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0f0c29 40%, #1a1030 100%);
+            background-attachment: fixed;
         }
     </style>
 </head>
 
-<body>
-    <div class="container chat-container">
-        <div class="chat-header">
-            <div style="display:flex; align-items:center; gap:10px">
-                <a href="inbox.html" style="color:white; text-decoration:none">⬅️</a>
-                <div class="profile-avi" style="width:40px; height:40px; margin:0;" id="peer-avi"></div>
-                <div id="peer-name">Chat with ...</div>
+<body class="font-sans text-gray-100 h-screen flex flex-col">
+
+    <!-- Header -->
+    <div
+        class="flex items-center justify-between px-4 md:px-6 py-3 bg-surface-700/80 backdrop-blur-xl border-b border-white/5 flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <a href="inbox.html" class="text-gray-400 hover:text-white transition">⬅️</a>
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                id="peer-avi" style="background: #555">?</div>
+            <div>
+                <div class="font-semibold text-sm text-white" id="peer-name">Chat with …</div>
+                <div class="text-xs text-gray-500 font-mono" id="peer-key"></div>
             </div>
-            <div style="font-size:12px; color:#00ff41">🔒 E2EE Active</div>
         </div>
-
-        <div class="chat-window" id="chat-feed">
-            <div style="text-align:center; color:#666">Loading Secure Tunnel...</div>
-        </div>
-
-        <div class="chat-input-area">
-            <div class="server-mode-selector">
-                <div class="mode-option active" id="mode-server" onclick="setMode('server')">☁️ Via Home Server</div>
-                <div class="mode-option" id="mode-direct" onclick="setMode('direct')">🚀 Carta Direta (P2P)</div>
-            </div>
-            <input type="text" id="direct-ip" class="direct-ip-input"
-                placeholder="Target IP (e.g., http://192.168.0.5:8080)">
-
-            <div style="display:flex; gap:10px">
-                <input type="text" id="msg-input" placeholder="Type a secret message..."
-                    style="flex:1; margin:0; border-radius:30px; padding:12px 20px;">
-                <button onclick="sendMsg()"
-                    style="border-radius:50%; width:50px; height:50px; padding:0; display:flex; align-items:center; justify-content:center">➤</button>
-            </div>
+        <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-[11px] font-semibold">🔒
+                E2EE</span>
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Chat Window -->
+    <div id="chat-feed" class="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-3">
+        <div class="text-center text-gray-500 text-sm py-8">Loading Secure Tunnel…</div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="flex-shrink-0 bg-surface-700/80 backdrop-blur-xl border-t border-white/5 p-3 md:p-4">
+        <!-- Mode Selector -->
+        <div class="flex gap-1 mb-3 bg-surface-900/50 rounded-lg p-1">
+            <button id="mode-server" onclick="setMode('server')"
+                class="flex-1 py-2 text-xs rounded-md bg-white/10 text-white font-semibold transition">☁️ Via
+                Server</button>
+            <button id="mode-direct" onclick="setMode('direct')"
+                class="flex-1 py-2 text-xs rounded-md text-gray-500 hover:text-gray-300 transition">🚀 Direct
+                P2P</button>
+        </div>
+        <input type="text" id="direct-ip" placeholder="Target IP (e.g., http://192.168.0.5:8080)"
+            class="hidden w-full bg-black/40 border border-white/10 text-green-400 font-mono text-xs rounded-lg px-3 py-2 mb-2 focus:border-green-500/50 focus:outline-none">
+        <div class="flex gap-2">
+            <input type="text" id="msg-input" placeholder="Type a secret message…"
+                class="flex-1 bg-white/[0.04] border border-white/10 rounded-full px-5 py-3 text-white text-sm placeholder-gray-500 focus:border-crom/50 focus:outline-none focus:ring-1 focus:ring-crom/30 transition"
+                onkeydown="if(event.key==='Enter')sendMsg()">
+            <button onclick="sendMsg()"
+                class="w-12 h-12 rounded-full bg-gradient-to-r from-crom to-crom-light text-black font-bold text-lg flex items-center justify-center hover:opacity-90 active:scale-95 transition flex-shrink-0">➤</button>
+        </div>
+    </div>
+
     <script src="js/lib/nacl.min.js"></script>
     <script src="js/lib/nacl-util.min.js"></script>
     <script src="js/lib/ed2curve.min.js"></script>
@@ -145,7 +80,6 @@
     <script src="js/ui_login.js"></script>
     <script src="js/ui_dm.js"></script>
     <script src="js/ui_server.js"></script>
-    <script src="js/api.js"></script>
 
     <script>
         const params = new URLSearchParams(window.location.search);
@@ -155,92 +89,68 @@
 
         if (!peerPub) window.location.href = 'inbox.html';
 
-        // Setup Header
         const hue = parseInt(peerPub.substring(0, 2), 16);
-        document.getElementById('peer-avi').style.background = `hsl(${hue}, 60%, 50%)`;
-        document.getElementById('peer-name').innerText = `Chat with @${peerPub.substring(0, 8)}...`;
+        document.getElementById('peer-avi').style.background = `hsl(${hue}, 55%, 45%)`;
+        document.getElementById('peer-avi').textContent = peerPub.substring(0, 2).toUpperCase();
+        document.getElementById('peer-name').textContent = `@${peerPub.substring(0, 8)}…`;
+        document.getElementById('peer-key').textContent = peerPub.substring(0, 20) + '…';
         document.getElementById('direct-ip').value = directIP;
 
         function setMode(mode) {
             currentMode = mode;
-            document.querySelectorAll('.mode-option').forEach(el => el.classList.remove('active'));
-            document.getElementById(`mode-${mode}`).classList.add('active');
-
-            const ipInput = document.getElementById('direct-ip');
-            ipInput.style.display = mode === 'direct' ? 'block' : 'none';
-        }
-
-        async function loadChat() {
-            // Re-use Inbox Logic but filter locally for Peer
-            // Ideally backend supports sender filter, but tag filter is for RECIPIENT.
-            // So we fetch "My Inbox" and filter messages FROM peer.
-            // AND we fetch "Sent by Me" with tag "recipient:PEER".
-
-            const msgs = await window.dmManager.fetchInbox(); // Returns messages TO me.
-            const mySent = []; // TODO: We need a way to fetch messages I sent. Backend filter author=me & tag=recipient:PEER.
-
-            // For MVP, we only show what I received in this view + what I JUST sent (in memory/UI).
-            // Fetching sent messages requires new DMManager function.
-
-            const chatFeed = document.getElementById('chat-feed');
-            chatFeed.innerHTML = '';
-
-            // Sort by time
-            msgs.sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
-
-            msgs.forEach(msg => {
-                if (msg.sender !== peerPub) return;
-                appendBubble(msg.content, 'received');
-            });
+            document.getElementById('mode-server').className = mode === 'server' ? 'flex-1 py-2 text-xs rounded-md bg-white/10 text-white font-semibold transition' : 'flex-1 py-2 text-xs rounded-md text-gray-500 hover:text-gray-300 transition';
+            document.getElementById('mode-direct').className = mode === 'direct' ? 'flex-1 py-2 text-xs rounded-md bg-white/10 text-white font-semibold transition' : 'flex-1 py-2 text-xs rounded-md text-gray-500 hover:text-gray-300 transition';
+            document.getElementById('direct-ip').classList.toggle('hidden', mode !== 'direct');
         }
 
         function appendBubble(text, type) {
             const div = document.createElement('div');
-            div.className = `msg-bubble msg-${type}`;
-            div.innerText = text;
+            const isMe = type === 'sent';
+            div.className = `max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? 'ml-auto bg-gradient-to-r from-crom to-crom-light text-black rounded-br-sm' : 'mr-auto bg-white/[0.06] text-gray-200 rounded-bl-sm'}`;
+            div.textContent = text;
             document.getElementById('chat-feed').appendChild(div);
-            // Scroll to bottom
-            const feed = document.getElementById('chat-feed');
-            feed.scrollTop = feed.scrollHeight;
+            document.getElementById('chat-feed').scrollTop = document.getElementById('chat-feed').scrollHeight;
+        }
+
+        async function loadChat() {
+            if (!window.dmManager) return;
+            const msgs = await window.dmManager.fetchInbox();
+            const chatFeed = document.getElementById('chat-feed');
+            chatFeed.innerHTML = '';
+            msgs.sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
+            let found = false;
+            msgs.forEach(msg => {
+                if (msg.sender !== peerPub) return;
+                found = true;
+                appendBubble(msg.content, 'received');
+            });
+            if (!found && chatFeed.children.length === 0) {
+                chatFeed.innerHTML = '<div class="text-center text-gray-500 text-sm py-8">No messages yet. Start the conversation!</div>';
+            }
         }
 
         async function sendMsg() {
             const text = document.getElementById('msg-input').value;
             if (!text) return;
-
             let success = false;
-
             if (currentMode === 'direct') {
                 const target = document.getElementById('direct-ip').value;
-                if (!target) return alert("Enter Target IP");
+                if (!target) return alert('Enter Target IP');
                 localStorage.setItem('last_direct_ip', target);
-
-                // Hack DMManager to use custom URL
                 const originalServer = window.serverManager.currentServer;
-                window.serverManager.currentServer = target; // Temporarily Switch
-
-                try {
-                    success = await window.dmManager.sendDM(peerPub, text);
-                } finally {
-                    window.serverManager.currentServer = originalServer; // Restore
-                }
-
-                if (success) {
-                    appendBubble(text + " (Direct 🚀)", 'sent');
-                }
+                window.serverManager.currentServer = target;
+                try { success = await window.dmManager.sendDM(peerPub, text); }
+                finally { window.serverManager.currentServer = originalServer; }
+                if (success) appendBubble(text + ' 🚀', 'sent');
             } else {
                 success = await window.dmManager.sendDM(peerPub, text);
-                if (success) {
-                    appendBubble(text, 'sent');
-                }
+                if (success) appendBubble(text, 'sent');
             }
-
             if (success) document.getElementById('msg-input').value = '';
         }
 
-        // Poll for new messages every 5s
         setInterval(loadChat, 5000);
-        loadChat();
+        setTimeout(loadChat, 500);
     </script>
 </body>
 

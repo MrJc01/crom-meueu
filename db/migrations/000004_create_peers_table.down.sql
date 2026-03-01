@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS idx_peers_url;
+DROP TABLE IF EXISTS peers;

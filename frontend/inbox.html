@@ -1,104 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
-    <title>Secure Inbox</title>
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Inbox | Crom Protocol</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: { crom: { DEFAULT: '#00d2ff', light: '#3a7bd5' }, surface: { 900: '#0a0a0f', 700: '#12121a', 600: '#1a1a25' } }
+                }
+            }
+        }
+    </script>
     <style>
-        .inbox-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding-top: 50px;
-        }
-
-        .dm-card {
-            background: rgba(0, 255, 65, 0.05);
-            /* Hacker Green Tint */
-            border: 1px solid #00ff41;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            position: relative;
-        }
-
-        .dm-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            border-bottom: 1px solid rgba(0, 255, 65, 0.2);
-            padding-bottom: 10px;
-        }
-
-        .sender-badge {
-            background: #00ff41;
-            color: black;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 12px;
-        }
-
-        .dm-content {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 16px;
-            white-space: pre-wrap;
-        }
-
-        .locked-msg {
-            text-align: center;
-            padding: 50px;
-            color: #666;
-        }
-
-        /* Compose Box */
-        .compose-box {
-            background: #1a1a1a;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 40px;
-            border: 1px solid #333;
-        }
-
-        input,
-        textarea {
-            width: 100%;
-            background: #111;
-            border: 1px solid #333;
-            color: white;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-        }
-
-        button {
-            background: #00d2ff;
-            border: none;
-            padding: 10px 20px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0f0c29 40%, #1a1030 100%);
+            background-attachment: fixed;
         }
     </style>
 </head>
 
-<body>
-    <div class="container inbox-container">
-        <h1>🔐 Secure Inbox (E2EE)</h1>
+<body class="font-sans text-gray-100 min-h-screen">
 
-        <div class="compose-box">
-            <h3>Send Encrypted Message</h3>
-            <input type="text" id="recipient" placeholder="Recipient Public Key (Hex)">
-            <textarea id="message" rows="3" placeholder="Secret Message..."></textarea>
-            <button onclick="send()">Encrypt & Send 🚀</button>
+    <nav
+        class="sticky top-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-surface-900/80 backdrop-blur-xl border-b border-white/5">
+        <a href="index.html"
+            class="text-gray-400 hover:text-white transition text-sm flex items-center gap-1"><span>←</span> Feed</a>
+        <span class="text-lg font-bold bg-gradient-to-r from-crom to-crom-light bg-clip-text text-transparent">🔐 Secure
+            Inbox</span>
+        <div class="w-16"></div>
+    </nav>
+
+    <div class="max-w-2xl mx-auto px-4 py-8">
+        <!-- Compose -->
+        <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 mb-8">
+            <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">✉️ New Encrypted Message</h3>
+            <input type="text" id="recipient" placeholder="Recipient Public Key (hex)"
+                class="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-mono placeholder-gray-500 focus:border-crom/50 focus:outline-none focus:ring-1 focus:ring-crom/30 transition mb-3">
+            <textarea id="message" rows="3" placeholder="Secret message…"
+                class="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:border-crom/50 focus:outline-none focus:ring-1 focus:ring-crom/30 transition resize-none mb-3"></textarea>
+            <button onclick="send()"
+                class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-crom to-crom-light text-black font-semibold text-sm hover:opacity-90 transition">Encrypt
+                & Send 🚀</button>
         </div>
 
-        <div id="inbox-list">
-            <div class="locked-msg">Checking Identity...</div>
+        <!-- Inbox -->
+        <h3 class="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">Inbox</h3>
+        <div id="inbox-list" class="space-y-3">
+            <div class="text-center text-gray-500 py-10 text-sm">Checking Identity…</div>
         </div>
     </div>
 
-    <!-- Security Libs -->
     <script src="js/lib/nacl.min.js"></script>
     <script src="js/lib/nacl-util.min.js"></script>
     <script src="js/lib/ed2curve.min.js"></script>
@@ -107,72 +64,68 @@
     <script src="js/ui_login.js"></script>
     <script src="js/ui_dm.js"></script>
     <script src="js/ui_server.js"></script>
-    <script src="js/api.js"></script>
 
     <script>
         async function loadInbox() {
-            const im = window.identityManager;
+            const im = window.cromAuth;
             const list = document.getElementById('inbox-list');
 
-            if (!im) {
-                console.warn("Identity Manager not initialized");
-                return;
-            }
-
-            // Wait for auth
-            if (!im.keyPair) {
-                await new Promise(r => setTimeout(r, 1000)); // Simple wait
-                if (!im.keyPair) {
-                    list.innerHTML = '<div class="locked-msg">🔒 Please Login to decrypt your messages.</div>';
+            if (!im || !im.keyPair) {
+                await new Promise(r => setTimeout(r, 1000));
+                if (!im || !im.keyPair) {
+                    list.innerHTML = `
+                        <div class="text-center py-12">
+                            <span class="text-4xl mb-3 block">🔒</span>
+                            <p class="text-gray-400 mb-4">Login to decrypt your messages</p>
+                            <button onclick="showLogin()" class="px-5 py-2 rounded-lg bg-crom text-black font-semibold text-sm hover:opacity-90 transition">Login / Sign Up</button>
+                        </div>`;
                     return;
                 }
             }
 
-            list.innerHTML = '<div>Decorrupting Signal... 📡</div>';
+            list.innerHTML = '<div class="text-center text-gray-500 py-6 text-sm">Decrypting messages… 📡</div>';
 
-            const msgs = await window.dmManager.fetchInbox();
+            try {
+                const msgs = await window.dmManager.fetchInbox();
+                if (!msgs || msgs.length === 0) {
+                    list.innerHTML = '<div class="text-center text-gray-500 py-10">No encrypted messages found.</div>';
+                    return;
+                }
 
-            if (msgs.length === 0) {
-                list.innerHTML = '<div class="locked-msg">No encrypted messages found for you.</div>';
-                return;
+                list.innerHTML = '';
+                msgs.forEach(msg => {
+                    const hue = parseInt(msg.sender.substring(0, 2), 16);
+                    list.innerHTML += `
+                        <div class="bg-green-500/[0.04] border border-green-500/20 rounded-xl p-4 hover:border-green-500/30 transition">
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-green-500/10">
+                                <a href="profile.html?pubkey=${msg.sender}" class="flex items-center gap-2">
+                                    <span class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style="background: hsl(${hue}, 55%, 45%)">${msg.sender.substring(0, 2).toUpperCase()}</span>
+                                    <span class="text-xs font-mono text-green-400">${msg.sender.substring(0, 10)}…</span>
+                                </a>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-gray-500">${new Date(msg.sent_at).toLocaleString()}</span>
+                                    <a href="chat.html?peer=${msg.sender}" class="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 transition">Reply 💬</a>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-200 font-mono whitespace-pre-wrap leading-relaxed">${msg.content}</div>
+                        </div>`;
+                });
+            } catch (e) {
+                list.innerHTML = `<div class="text-center text-red-400 py-8">${e.message}</div>`;
             }
-
-            list.innerHTML = '';
-            msgs.forEach(msg => {
-                const div = document.createElement('div');
-                div.className = 'dm-card';
-                div.innerHTML = `
-                    <div class="dm-header">
-                        <div>
-                            From: <a href="profile.html?pubkey=${msg.sender}" style="text-decoration:none">
-                                <span class="sender-badge">${msg.sender.substring(0, 8)}...</span>
-                            </a>
-                        </div>
-                        <div style="font-size:12px; color:#888; display:flex; align-items:center; gap:10px">
-                            <span>${new Date(msg.sent_at).toLocaleString()}</span>
-                            <button onclick="window.location.href='chat.html?peer=${msg.sender}'" style="padding:4px 8px; font-size:11px; background:#333; border:1px solid #555; color:white;">Reply 💬</button>
-                        </div>
-                    </div>
-                    <div class="dm-content">${msg.content}</div>
-                `;
-                list.appendChild(div);
-            });
         }
 
         async function send() {
             const recip = document.getElementById('recipient').value.trim();
             const text = document.getElementById('message').value;
-
-            if (!recip || !text) return alert("Fill all fields");
-
+            if (!recip || !text) return alert('Fill all fields');
             const success = await window.dmManager.sendDM(recip, text);
             if (success) {
                 document.getElementById('message').value = '';
-                // Optional: add to list? No simple way to read sent messages yet without search
+                alert('Message encrypted and sent!');
             }
         }
 
-        // Init
         setTimeout(loadInbox, 500);
     </script>
 </body>

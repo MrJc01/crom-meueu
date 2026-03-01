@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -18,11 +20,15 @@ import (
 )
 
 type PublishHandler struct {
-	repo *postgres.NodeRepository
+	repo      *postgres.NodeRepository
+	nonceRepo *postgres.NonceRepository
 }
 
-func NewPublishHandler(repo *postgres.NodeRepository) *PublishHandler {
-	return &PublishHandler{repo: repo}
+func NewPublishHandler(repo *postgres.NodeRepository, nonceRepo *postgres.NonceRepository) *PublishHandler {
+	return &PublishHandler{
+		repo:      repo,
+		nonceRepo: nonceRepo,
+	}
 }
 
 func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +69,16 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 2.5 Security: Network ID Verification
+	expectedNetworkID := os.Getenv("NETWORK_ID")
+	if expectedNetworkID == "" {
+		expectedNetworkID = "meueu-mainnet-v1" // Fallback
+	}
+	if req.NetworkID != expectedNetworkID {
+		http.Error(w, fmt.Sprintf("Invalid Network ID. Expected: %s", expectedNetworkID), http.StatusBadRequest)
+		return
+	}
+
 	// 3. Security: Time Travel & Import Logic
 	// Rule 1: Future dates > 5m are strictly forbidden (Time Travelers/Clock Skew Attacks).
 	// Rule 2: Past dates are ALLOWED as "Historic Imports".
@@ -77,11 +93,18 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If message is older than 5 minutes, we consider it an "Import".
-	// No error, just standard processing.
+	// Check if this server accepts external sync/imports.
+	if drift < -5*time.Minute {
+		syncExternal := os.Getenv("SYNC_EXTERNAL_POSTS")
+		if syncExternal == "false" {
+			http.Error(w, "This server does not accept historic imports (SYNC_EXTERNAL_POSTS=false).", http.StatusForbidden)
+			return
+		}
+	}
 
 	// 4. Security: Replay Attack Protection (Nonce Check)
 	// Prevent unauthorized re-broadcast of the same valid message/nonce.
-	if h.isReplayDetected(req.AuthorPubkey, req.Nonce) {
+	if h.isReplayDetected(r.Context(), req.AuthorPubkey, req.Nonce) {
 		http.Error(w, "Replay detected: Nonce already used.", http.StatusBadRequest)
 		return
 	}
@@ -163,15 +186,13 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 // isReplayDetected checks if the nonce has been used before.
-// CURRENT STATUS: Scaffold / Mock.
-// REAL IMPLEMENTATION: Must connect to Redis or DB (table: used_nonces) with TTL.
-func (h *PublishHandler) isReplayDetected(authorPubkey, nonce string) bool {
-	// TODO: Connect to Redis/DB.
-	// logic:
-	// key := fmt.Sprintf("nonce:%s:%s", authorPubkey, nonce)
-	// if exists(key) { return true }
-	// set(key, 1, ttl=5*time.Minute)
-	// return false
+// We use Postgres to atomically test-and-set the nonce.
+func (h *PublishHandler) isReplayDetected(ctx context.Context, authorPubkey, nonce string) bool {
+	if h.nonceRepo == nil {
+		return false // Failsafe if not wired
+	}
 
-	return false // Always false in this mock until Infra is ready.
+	success := h.nonceRepo.MarkUsed(ctx, nonce, authorPubkey)
+	// If NOT successful, it means the nonce already exists -> Replay Detected!
+	return !success
 }
