@@ -2,33 +2,49 @@ package services
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	"meueu/internal/api/handlers"
 	"meueu/internal/core/domain"
 	"meueu/internal/core/security"
 	"meueu/internal/storage/postgres"
 )
 
 type PeerDiscoveryService struct {
-	repo     *postgres.PeerRepository
-	nodeRepo *postgres.NodeRepository
-	myURL    string
-	myPubKey string
+	repo      *postgres.PeerRepository
+	nodeRepo  *postgres.NodeRepository
+	adminRepo *postgres.AdminRepository
+	myURL     string
+	myPubKey  string
 	seedNodes []string
-	client   *http.Client
+	client    *http.Client
+	
+	// Anti-DDoS: Sync Quarantine Tracker
+	// Tracks how many times we fetched from a peer in a time window to prevent cyclic drain
+	syncTracker sync.Map // map[string]*syncRecord
 }
 
-func NewPeerDiscoveryService(repo *postgres.PeerRepository, nodeRepo *postgres.NodeRepository, myURL, myPubKey string, seedNodes []string) *PeerDiscoveryService {
+type syncRecord struct {
+	count     int
+	lastFetch time.Time
+	mu        sync.Mutex
+}
+
+func NewPeerDiscoveryService(repo *postgres.PeerRepository, nodeRepo *postgres.NodeRepository, adminRepo *postgres.AdminRepository, myURL, myPubKey string, seedNodes []string) *PeerDiscoveryService {
 	return &PeerDiscoveryService{
 		repo:      repo,
 		nodeRepo:  nodeRepo,
+		adminRepo: adminRepo,
 		myURL:     myURL,
 		myPubKey:  myPubKey,
 		seedNodes: seedNodes,
@@ -108,9 +124,56 @@ func (s *PeerDiscoveryService) fetchPeersFrom(ctx context.Context, peerURL strin
 		return
 	}
 
-	var discoveredPeers []domain.Peer
-	if err := json.NewDecoder(resp.Body).Decode(&discoveredPeers); err != nil {
+	var signedList handlers.SignedPeerList
+	if err := json.NewDecoder(resp.Body).Decode(&signedList); err != nil {
 		s.punishPeerByUrl(ctx, peerURL, 5) // Bad JSON
+		return
+	}
+
+	// 1. Anti-Replay: Timestamp too old (e.g. > 5 mins) or in the future
+	now := time.Now().Unix()
+	if signedList.Timestamp < now-300 || signedList.Timestamp > now+60 {
+		log.Printf("[GossipAuth] Peer %s rejected: Timestamp delta too large", peerURL)
+		s.punishPeerByUrl(ctx, peerURL, 20)
+		return
+	}
+
+	// 2. Cryptographic Validation
+	pubBytes, err := hex.DecodeString(signedList.PubKey)
+	if err != nil || len(pubBytes) != ed25519.PublicKeySize {
+		s.punishPeerByUrl(ctx, peerURL, 20)
+		return
+	}
+
+	sigBytes, err := hex.DecodeString(signedList.Signature)
+	if err != nil {
+		s.punishPeerByUrl(ctx, peerURL, 20)
+		return
+	}
+
+	// Reconstruct the message: "peers_json|timestamp"
+	peersJSON, _ := json.Marshal(signedList.Peers)
+	dataToSign := fmt.Sprintf("%s|%d", string(peersJSON), signedList.Timestamp)
+	hash := sha256.Sum256([]byte(dataToSign))
+
+	if !ed25519.Verify(pubBytes, hash[:], sigBytes) {
+		log.Printf("🚨 [GossipAuth] SECURITY BREACH: Invalid gossip signature from %s. Blacklisting locally.", peerURL)
+		s.punishPeerByUrl(ctx, peerURL, 100) // INSTANT -100 Reputation!
+		return
+	}
+
+	// 3. Process Trusted/Federated mode
+	// If the node is signed by an immune trusted server, ensure it retains maximum reputation.
+	trustedEnv := os.Getenv("TRUSTED_PUBKEYS")
+	isTrusted := false
+	if trustedEnv != "" && strings.Contains(trustedEnv, signedList.PubKey) {
+		isTrusted = true
+	}
+
+	// 4. Upsert Valid Peers
+	var discoveredPeers []domain.Peer
+	if err := json.Unmarshal(peersJSON, &discoveredPeers); err != nil {
+		s.punishPeerByUrl(ctx, peerURL, 5)
 		return
 	}
 
@@ -133,7 +196,11 @@ func (s *PeerDiscoveryService) fetchPeersFrom(ctx context.Context, peerURL strin
 		}
 	}
 	
-	s.rewardPeerByUrl(ctx, peerURL, 1)
+	if isTrusted {
+		s.rewardPeerByUrl(ctx, peerURL, 100) // Max out!
+	} else {
+		s.rewardPeerByUrl(ctx, peerURL, 1)
+	}
 }
 
 // syncContent pulls recent posts from reputable peers and validates their signatures.
@@ -156,8 +223,42 @@ func (s *PeerDiscoveryService) syncContent(ctx context.Context) {
 		if p.URL == s.myURL || p.Reputation < 50 {
 			continue
 		}
+
+		// Check Circuit Breaker
+		if !s.allowSync(p.URL) {
+			log.Printf("[ContentSync] Quarantined %s (Too many sync requests)", p.URL)
+			continue
+		}
+
 		s.fetchContentFrom(ctx, p, since)
 	}
+}
+
+// allowSync employs a Token Bucket-like approach per Peer URL to cap sync fetches
+// Limits to 5 fetches per minute per peer.
+func (s *PeerDiscoveryService) allowSync(peerURL string) bool {
+	now := time.Now()
+	val, _ := s.syncTracker.LoadOrStore(peerURL, &syncRecord{
+		count:     0,
+		lastFetch: now,
+	})
+	record := val.(*syncRecord)
+
+	record.mu.Lock()
+	defer record.mu.Unlock()
+
+	// Reset window after 1 minute
+	if now.Sub(record.lastFetch) > 1*time.Minute {
+		record.count = 0
+		record.lastFetch = now
+	}
+
+	if record.count >= 5 {
+		return false
+	}
+
+	record.count++
+	return true
 }
 
 func (s *PeerDiscoveryService) fetchContentFrom(ctx context.Context, peer *domain.Peer, sinceUnix int64) {
@@ -219,6 +320,16 @@ func (s *PeerDiscoveryService) fetchContentFrom(ctx context.Context, peer *domai
 
 		// Generate deterministic ID from signature hash
 		sigHash := sha256.Sum256([]byte(node.Signature))
+		sigHashHex := fmt.Sprintf("%x", sigHash)
+
+		// Check Banlist (Drop Banned Hashes without punishing the peer necessarily)
+		if s.adminRepo != nil {
+			isBanned, err := s.adminRepo.IsBannedHash(ctx, sigHashHex)
+			if err == nil && isBanned {
+				continue // Silently drop
+			}
+		}
+
 		var idBytes [16]byte
 		copy(idBytes[:], sigHash[:16])
 		idBytes[6] = (idBytes[6] & 0x0f) | 0x80 // Version 8

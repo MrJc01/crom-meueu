@@ -57,6 +57,49 @@ func (r *NodeRepository) Create(ctx context.Context, node *domain.Node) error {
 	return nil
 }
 
+// CreateBatch inserts multiple nodes inside a single transaction.
+// Fails and rolls back entirely if any node is malformed.
+func (r *NodeRepository) CreateBatch(ctx context.Context, nodes []*domain.Node) error {
+	if r.pool == nil {
+		return fmt.Errorf("database not available")
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+		INSERT INTO nodes (
+			id, parent_id, author_pubkey, kind, payload, tags, 
+			signature, claimed_at, verified_at, origin_server
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, 
+			$7, $8, NOW(), $9
+		) ON CONFLICT (id) DO NOTHING
+	`
+
+	for _, node := range nodes {
+		_, err := tx.Exec(ctx, query,
+			node.ID,
+			node.ParentID,
+			node.AuthorPubkey,
+			node.Kind,
+			node.Payload,
+			node.Tags,
+			node.Signature,
+			node.ClaimedAt,
+			node.OriginServer,
+		)
+		if err != nil {
+			return fmt.Errorf("batch insert failed at node %s: %w", node.ID, err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (r *NodeRepository) Query(ctx context.Context, filter domain.NodeFilter, limit, offset int) ([]*domain.Node, error) {
 	if r.pool == nil {
 		return []*domain.Node{}, nil // Dev mode: return empty

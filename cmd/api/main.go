@@ -12,6 +12,7 @@ import (
 	"meueu/internal/api"
 	"meueu/internal/api/handlers"
 	"meueu/internal/api/middleware"
+	"meueu/internal/core/identity"
 	"meueu/internal/core/services"
 	"meueu/internal/storage/postgres"
 
@@ -65,12 +66,15 @@ func main() {
 	peerRepo := postgres.NewPeerRepository(dbPool)
 	nonceRepo := postgres.NewNonceRepository(dbPool)
 
-	// 4. Handlers
-	publishHandler := handlers.NewPublishHandler(nodeRepo, nonceRepo)
-	queryHandler := handlers.NewQueryHandler(nodeRepo)
-	adminHandler := handlers.NewAdminHandler(adminRepo)
-	peerHandler := handlers.NewPeerHandler(peerRepo)
-	syncHandler := handlers.NewSyncHandler(nodeRepo)
+	// 4.5. Initialize Server Identity
+	keyPath := ".server_key"
+	if customPath := os.Getenv("SERVER_KEY_PATH"); customPath != "" {
+		keyPath = customPath
+	}
+	serverID, err := identity.InitServerIdentity(keyPath)
+	if err != nil {
+		log.Fatalf("Critical error initializing server identity: %v", err)
+	}
 
 	// 5. Middleware Container
 	mw := middleware.NewContainer(adminRepo)
@@ -86,8 +90,9 @@ func main() {
 			seedNodes = strings.Split(s, ",")
 		}
 
-		peerDiscovery := services.NewPeerDiscoveryService(peerRepo, nodeRepo, myURL, "local-pubkey", seedNodes)
-		peerDiscovery.Start(ctx)
+		// 9. Start Background Services
+		discoveryService := services.NewPeerDiscoveryService(peerRepo, nodeRepo, adminRepo, myURL, serverID.PubKeyHex, seedNodes)
+		discoveryService.Start(ctx)
 
 		// Nonce TTL Cleanup (every 1h, remove nonces > 24h)
 		go func() {
@@ -113,7 +118,22 @@ func main() {
 	}
 
 	// 7. Router (all routes registered in one place)
-	handler := api.NewRouter(publishHandler, queryHandler, adminHandler, peerHandler, syncHandler, mw)
+	publishHandler := handlers.NewPublishHandler(nodeRepo, nonceRepo, adminRepo)
+	queryHandler := handlers.NewQueryHandler(nodeRepo)
+	adminHandler := handlers.NewAdminHandler(adminRepo)
+	peerHandler := handlers.NewPeerHandler(peerRepo, serverID)
+	syncHandler := handlers.NewSyncHandler(nodeRepo, adminRepo)
+
+	cfg := api.RouterConfig{
+		PublishHandler: publishHandler,
+		QueryHandler:   queryHandler,
+		AdminHandler:   adminHandler,
+		PeerHandler:    peerHandler,
+		SyncHandler:    syncHandler,
+		Middleware:     mw,
+		ServerIdentity: serverID,
+	}
+	handler := api.NewRouter(cfg)
 
 	// 8. Start Server
 	srv := &http.Server{

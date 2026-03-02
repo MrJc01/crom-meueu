@@ -63,6 +63,34 @@ class CromClient {
             throw error;
         }
     }
+
+    /**
+     * Import a batch of Historical Nodes (Backup Restore)
+     * @param {Array} nodes - Array of previously signed nodeData
+     * @param {String} authorPubKey - The pubkey claiming the restoration
+     */
+    async importBulk(nodes, authorPubKey) {
+        const url = `${this.baseUrl}/v1/import`;
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-MeuEu-Author': authorPubKey || ''
+                },
+                body: JSON.stringify(nodes)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Import Error: ${response.status} - ${errText}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('CromClient Import Error:', error);
+            throw error;
+        }
+    }
 }
 
 // Export global

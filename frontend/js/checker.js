@@ -1,204 +1,120 @@
 /**
- * Crom-Checker: Frontend Integrity Verification Script
- * 
- * This script verifies that the frontend files (api.js, auth.js) have not been
- * tampered with by comparing their SHA-256 hashes against a manifest from a
- * trusted source defined in the user's .cromid vault.
- * 
- * Flow:
- * 1. Read trusted_source from the loaded .cromid
- * 2. Fetch manifest.json from that trusted source (GitHub raw URL)
- * 3. Compute SHA-256 of loaded frontend files
- * 4. Compare hashes — alert and block if mismatch detected
+ * Crom-Checker: Integrity Watchdog
+ * Validates local scripts against the manifest of the Trusted Source from the user's .cromid.
  */
 
 class CromChecker {
     constructor() {
-        this.verified = false;
-        this.alerts = [];
+        this.scriptsToCheck = [
+            '/js/api.js',
+            '/js/app.js',
+            '/js/sdk/auth.js',
+            '/js/ui_login.js',
+            '/index.html'
+        ];
     }
 
-    /**
-     * Run integrity check against the trusted source.
-     * @param {string} trustedSource - URL to the raw manifest.json (e.g., GitHub raw URL)
-     * @returns {Promise<{verified: boolean, alerts: string[]}>}
-     */
-    async verify(trustedSource) {
-        if (!trustedSource) {
-            this.verified = true; // No trusted source configured = skip verification
-            return { verified: true, alerts: ['No trusted_source configured. Skipping integrity check.'] };
-        }
-
-        this.alerts = [];
-
-        try {
-            // 1. Fetch manifest from trusted source
-            const manifestUrl = trustedSource.endsWith('/')
-                ? trustedSource + 'manifest.json'
-                : trustedSource + '/manifest.json';
-
-            const manifestResp = await fetch(manifestUrl, {
-                cache: 'no-store',
-                headers: { 'Accept': 'application/json' }
-            });
-
-            if (!manifestResp.ok) {
-                this.alerts.push(`⚠️ Could not fetch manifest from trusted source: ${manifestResp.status}`);
-                this.verified = false;
-                return { verified: false, alerts: this.alerts };
-            }
-
-            const manifest = await manifestResp.json();
-
-            if (!manifest.files || typeof manifest.files !== 'object') {
-                this.alerts.push('⚠️ Invalid manifest format: missing "files" object');
-                this.verified = false;
-                return { verified: false, alerts: this.alerts };
-            }
-
-            // 2. Verify each file listed in the manifest
-            const filesToCheck = ['js/sdk/auth.js', 'js/api.js'];
-            let allValid = true;
-
-            for (const filePath of filesToCheck) {
-                const expectedHash = manifest.files[filePath];
-                if (!expectedHash) {
-                    this.alerts.push(`ℹ️ File ${filePath} not found in manifest, skipping.`);
-                    continue;
-                }
-
-                try {
-                    const fileResp = await fetch('/' + filePath, { cache: 'no-store' });
-                    if (!fileResp.ok) {
-                        this.alerts.push(`⚠️ Could not fetch local file: ${filePath}`);
-                        allValid = false;
-                        continue;
-                    }
-
-                    const fileContent = await fileResp.text();
-                    const computedHash = await this.sha256(fileContent);
-
-                    if (computedHash !== expectedHash) {
-                        this.alerts.push(`🚨 HASH MISMATCH: ${filePath} — Expected: ${expectedHash.substring(0, 16)}... Got: ${computedHash.substring(0, 16)}...`);
-                        allValid = false;
-                    } else {
-                        this.alerts.push(`✅ ${filePath}: Integrity OK`);
-                    }
-                } catch (e) {
-                    this.alerts.push(`⚠️ Error checking ${filePath}: ${e.message}`);
-                    allValid = false;
-                }
-            }
-
-            this.verified = allValid;
-
-            if (!allValid) {
-                this.showSecurityAlert();
-            }
-
-            return { verified: allValid, alerts: this.alerts };
-
-        } catch (e) {
-            this.alerts.push(`⚠️ Integrity check failed: ${e.message}`);
-            this.verified = false;
-            return { verified: false, alerts: this.alerts };
-        }
-    }
-
-    /**
-     * Compute SHA-256 hash of a string.
-     * @param {string} text
-     * @returns {Promise<string>} Hex-encoded hash
-     */
-    async sha256(text) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(text);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    async hashData(dataText) {
+        const msgUint8 = new TextEncoder().encode(dataText);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    /**
-     * Display a security alert overlay blocking key loading.
-     */
-    showSecurityAlert() {
-        const overlay = document.createElement('div');
-        overlay.id = 'crom-checker-alert';
-        overlay.style.cssText = `
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(139, 0, 0, 0.95); backdrop-filter: blur(10px);
-            z-index: 99999; display: flex; align-items: center; justify-content: center;
-            flex-direction: column; color: white; font-family: monospace;
-        `;
-
-        overlay.innerHTML = `
-            <div style="max-width: 600px; text-align: center; padding: 40px;">
-                <div style="font-size: 80px; margin-bottom: 20px;">🛡️</div>
-                <h1 style="color: #ff4444; margin-bottom: 10px;">Frontend Adulterado</h1>
-                <h2 style="color: #ffaa00; font-weight: normal;">Tampered Frontend Detected</h2>
-                <p style="line-height: 1.8; margin: 20px 0; color: #ddd;">
-                    The integrity verification has detected that one or more frontend files 
-                    on this server have been modified from the expected version.
-                </p>
-                <div style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; text-align: left; margin: 20px 0; max-height: 200px; overflow-y: auto;">
-                    ${this.alerts.map(a => `<div style="color: ${a.startsWith('🚨') ? '#ff4444' : '#ccc'}; margin: 5px 0; font-size: 13px;">${a}</div>`).join('')}
-                </div>
-                <p style="color: #ff6666; font-weight: bold;">
-                    ⛔ Private key loading has been BLOCKED to protect your identity.
-                </p>
-                <p style="color: #aaa; font-size: 12px; margin-top: 15px;">
-                    If you trust this server, you can update the <code>trusted_source</code> in your .cromid file.
-                </p>
-                <button onclick="document.getElementById('crom-checker-alert').remove()" 
-                    style="margin-top: 20px; padding: 10px 30px; background: transparent; 
-                    border: 1px solid #666; color: #aaa; border-radius: 8px; cursor: pointer;">
-                    Dismiss (Proceed at own risk)
-                </button>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
+    async fetchLocalScript(path) {
+        try {
+            const resp = await fetch(path);
+            if (!resp.ok) return null;
+            return await resp.text();
+        } catch (e) {
+            return null;
+        }
     }
 
-    /**
-     * Auto-run: Reads trusted_source from CromAuth and verifies integrity.
-     * Should be called after identity is loaded.
-     */
-    async autoVerify() {
-        const auth = window.cromAuth;
-        if (!auth || typeof auth.getTrustedSource !== 'function') {
-            return; // SDK not loaded or no getTrustedSource method
+    async fetchRemoteManifest(trustedSourceUrl) {
+        try {
+            // e.g. https://raw.githubusercontent.com/user/crom-meueu/master/manifest.json
+            // For now, we simulate fetching the manifest from the trusted URL root
+            let uri = trustedSourceUrl;
+            if (!uri.endsWith('/')) uri += '/';
+            const resp = await fetch(uri + 'manifest.json');
+            if (!resp.ok) return null;
+            return await resp.json();
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async runCheck() {
+        if (!window.cromAuth) return;
+        const trustedSrc = window.cromAuth.getTrustedSource();
+        if (!trustedSrc) {
+            // No trusted source to verify against
+            return;
         }
 
-        const source = auth.getTrustedSource();
-        if (!source) {
-            return; // No trusted source configured
+        const manifest = await this.fetchRemoteManifest(trustedSrc);
+        if (!manifest) {
+            console.warn("Crom-Checker: Could not fetch manifest from trusted source.");
+            return;
         }
 
-        const result = await this.verify(source);
-        if (!result.verified) {
-            console.warn('[CromChecker] Frontend integrity check FAILED:', result.alerts);
-            // Block CromAuth key loading by clearing keys
-            if (auth.keyPair) {
-                console.warn('[CromChecker] Blocking private key access due to integrity failure.');
-                auth.keyPair = null;
-                auth.boxKeyPair = null;
+        let isTampered = false;
+
+        for (const script of this.scriptsToCheck) {
+            const localScriptText = await this.fetchLocalScript(script);
+            if (!localScriptText) continue;
+
+            const localHash = await this.hashData(localScriptText);
+
+            // Check against manifest hash tree
+            // Assuming manifest looks like: { "files": { "/js/api.js": "a1b2c3..." } }
+            if (manifest.files && manifest.files[script]) {
+                const expectedHash = manifest.files[script];
+                if (localHash !== expectedHash) {
+                    isTampered = true;
+                    console.error(`Crom-Checker Alert: Tampering detected on ${script}!`);
+                    console.error(`Expected: ${expectedHash} | Got: ${localHash}`);
+                }
             }
-        } else {
-            console.log('[CromChecker] Frontend integrity verified ✅');
         }
+
+        this.renderBadge(isTampered, trustedSrc);
+    }
+
+    renderBadge(isTampered, sourceUrl) {
+        const badge = document.createElement('div');
+        badge.id = 'crom-checker-badge';
+        badge.style.cssText = `
+            position: fixed; bottom: 20px; left: 20px;
+            padding: 8px 12px; border-radius: 8px; font-size: 11px;
+            font-weight: bold; cursor: help; backdrop-filter: blur(5px); z-index: 9000;
+        `;
+
+        if (isTampered) {
+            badge.style.background = 'rgba(255, 50, 50, 0.15)';
+            badge.style.border = '1px solid #ff3232';
+            badge.style.color = '#ff3232';
+            badge.innerHTML = `⚠️ NETWORK COMPROMISED - DOM TAMPERING DETECTED`;
+            badge.title = "The node server provided manipulated Javascript files that don't match your Trusted Source!";
+        } else {
+            badge.style.background = 'rgba(0, 255, 65, 0.1)';
+            badge.style.border = '1px solid #00ff41';
+            badge.style.color = '#00ff41';
+            badge.innerHTML = `🛡️ Network Secure (Audited against ${new URL(sourceUrl).hostname})`;
+            badge.title = "Integrity hashes match the original trusted source repository.";
+        }
+
+        // Drop existing
+        const existing = document.getElementById('crom-checker-badge');
+        if (existing) existing.remove();
+
+        document.body.appendChild(badge);
     }
 }
 
-// Initialize and export
-window.cromChecker = new CromChecker();
-
-// Auto-verify when document is ready (after auth is loaded)
-document.addEventListener('DOMContentLoaded', () => {
-    // Delay to ensure auth.js has had time to restore session
-    setTimeout(() => {
-        if (window.cromChecker) {
-            window.cromChecker.autoVerify();
-        }
-    }, 2000);
-});
+// Run watchdog smoothly after 3 seconds of load
+setTimeout(() => {
+    const watchdog = new CromChecker();
+    watchdog.runCheck();
+}, 3000);

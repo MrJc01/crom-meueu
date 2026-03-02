@@ -195,11 +195,21 @@ func (r *AdminRepository) IsBannedHash(ctx context.Context, hash string) (bool, 
 
 func (r *AdminRepository) AddBannedHash(ctx context.Context, hash, reason string) error {
 	if r.pool == nil { return fmt.Errorf("database not available") }
+	
+	// Insert the ban
 	_, err := r.pool.Exec(ctx,
 		"INSERT INTO banned_hashes (hash, reason) VALUES ($1, $2) ON CONFLICT DO NOTHING",
 		hash, reason,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// 77. Cascading delete of existing corrupted content
+	// Recompiles the Signature into SHA256 and purges matching strings.
+	_, _ = r.pool.Exec(ctx, "DELETE FROM nodes WHERE encode(sha256(signature::bytea), 'hex') = $1", hash)
+	
+	return nil
 }
 
 func (r *AdminRepository) RemoveBannedHash(ctx context.Context, hash string) error {

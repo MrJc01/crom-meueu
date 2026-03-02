@@ -7,56 +7,65 @@ import (
 
 	"meueu/internal/api/handlers"
 	"meueu/internal/api/middleware"
+	"meueu/internal/core/identity"
 )
+
+// RouterConfig defines the dependencies for setting up the router.
+type RouterConfig struct {
+	PublishHandler *handlers.PublishHandler
+	QueryHandler   *handlers.QueryHandler
+	AdminHandler   *handlers.AdminHandler
+	PeerHandler    *handlers.PeerHandler
+	SyncHandler    *handlers.SyncHandler
+	Middleware     *middleware.Container
+	ServerIdentity identity.ServerIdentity
+}
 
 // NewRouter creates the fully-wired HTTP handler with all routes and middleware.
 // This centralizes route registration and makes the endpoint tree visible at a glance.
-func NewRouter(
-	publishHandler *handlers.PublishHandler,
-	queryHandler *handlers.QueryHandler,
-	adminHandler *handlers.AdminHandler,
-	peerHandler *handlers.PeerHandler,
-	syncHandler *handlers.SyncHandler,
-	mw *middleware.Container,
-) http.Handler {
+func NewRouter(cfg RouterConfig) http.Handler {
 	mux := http.NewServeMux()
 
 	// ── Public API (v1) ──────────────────────────────────────────────
 	// Publish: Full governance chain (RateLimiter → Banlist → ContentFilter → Whitelist)
-	mux.Handle("/v1/publish", mw.StandardSecurity(http.HandlerFunc(publishHandler.Handle)))
+	mux.Handle("/v1/publish", cfg.Middleware.StandardSecurity(http.HandlerFunc(cfg.PublishHandler.Handle)))
 
 	// Query: Whitelist-only (if WHITELIST mode)
-	mux.Handle("/v1/query", mw.QuerySecurity(http.HandlerFunc(queryHandler.Handle)))
+	mux.Handle("/v1/query", cfg.Middleware.QuerySecurity(http.HandlerFunc(cfg.QueryHandler.Handle)))
 
 	// ── Discovery & Sync ─────────────────────────────────────────────
-	mux.HandleFunc("/v1/peers", peerHandler.HandleList)
-	mux.HandleFunc("/v1/sync", syncHandler.Handle)
+	mux.HandleFunc("/v1/peers", cfg.PeerHandler.HandleList)
+	mux.HandleFunc("/v1/sync", cfg.SyncHandler.Handle) // GET historical Sync
+	
+	// Bulk Import (Restore Backup) goes through standard security (Rate Limiter etc)
+	mux.Handle("/v1/import", cfg.Middleware.StandardSecurity(http.HandlerFunc(cfg.SyncHandler.HandleImport)))
 
 	// ── Transparency (Required by License) ───────────────────────────
 	mux.HandleFunc("/meta", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
-			"server":       "Crom/Meueu Node",
-			"version":      "2.0.0-sovereign",
-			"source_url":   "https://github.com/your-username/crom-meueu",
-			"mode":         os.Getenv("SERVER_MODE"),
-			"network_id":   os.Getenv("NETWORK_ID"),
-			"sync_enabled": os.Getenv("SYNC_EXTERNAL_POSTS"),
+			"server":        "Crom/Meueu Node",
+			"version":       "2.0.0-sovereign",
+			"source_url":    "https://github.com/your-username/crom-meueu",
+			"mode":          os.Getenv("SERVER_MODE"),
+			"network_id":    os.Getenv("NETWORK_ID"),
+			"sync_enabled":  os.Getenv("SYNC_EXTERNAL_POSTS"),
+			"server_pubkey": cfg.ServerIdentity.PubKeyHex,
 		})
 	})
 
 	// ── Admin API (v1/admin/*) — Protected by AuthAdmin ──────────────
 	adminMux := http.NewServeMux()
-	adminMux.HandleFunc("/stats", adminHandler.HandleStats)
+	adminMux.HandleFunc("/stats", cfg.AdminHandler.HandleStats)
 
 	adminMux.HandleFunc("/whitelist", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			adminHandler.HandleWhitelistList(w, r)
+			cfg.AdminHandler.HandleWhitelistList(w, r)
 		case http.MethodPost:
-			adminHandler.HandleWhitelistAdd(w, r)
+			cfg.AdminHandler.HandleWhitelistAdd(w, r)
 		case http.MethodDelete:
-			adminHandler.HandleWhitelistRemove(w, r)
+			cfg.AdminHandler.HandleWhitelistRemove(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -65,11 +74,11 @@ func NewRouter(
 	adminMux.HandleFunc("/banned_words", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			adminHandler.HandleListBannedWords(w, r)
+			cfg.AdminHandler.HandleListBannedWords(w, r)
 		case http.MethodPost:
-			adminHandler.HandleBanWord(w, r)
+			cfg.AdminHandler.HandleBanWord(w, r)
 		case http.MethodDelete:
-			adminHandler.HandleUnbanWord(w, r)
+			cfg.AdminHandler.HandleUnbanWord(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -78,11 +87,11 @@ func NewRouter(
 	adminMux.HandleFunc("/banned_users", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			adminHandler.HandleListBannedUsers(w, r)
+			cfg.AdminHandler.HandleListBannedUsers(w, r)
 		case http.MethodPost:
-			adminHandler.HandleBanUser(w, r)
+			cfg.AdminHandler.HandleBanUser(w, r)
 		case http.MethodDelete:
-			adminHandler.HandleUnbanUser(w, r)
+			cfg.AdminHandler.HandleUnbanUser(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -90,7 +99,7 @@ func NewRouter(
 
 	adminMux.HandleFunc("/node", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
-			adminHandler.HandleDeleteNode(w, r)
+			cfg.AdminHandler.HandleDeleteNode(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -99,11 +108,11 @@ func NewRouter(
 	adminMux.HandleFunc("/banned_hashes", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			adminHandler.HandleListBannedHashes(w, r)
+			cfg.AdminHandler.HandleListBannedHashes(w, r)
 		case http.MethodPost:
-			adminHandler.HandleBanHash(w, r)
+			cfg.AdminHandler.HandleBanHash(w, r)
 		case http.MethodDelete:
-			adminHandler.HandleUnbanHash(w, r)
+			cfg.AdminHandler.HandleUnbanHash(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -119,5 +128,5 @@ func NewRouter(
 	mux.Handle("/", fs)
 
 	// ── Global Middleware (CORS) ─────────────────────────────────────
-	return mw.CORS(mux)
+	return cfg.Middleware.CORS(mux)
 }

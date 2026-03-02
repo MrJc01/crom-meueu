@@ -13,7 +13,30 @@ const app = {
             window.cromClient = new CromClient(baseUrl);
         }
         this.bindFilters();
+        this.startInactivityTimer();
         this.loadFeed();
+    },
+
+    startInactivityTimer() {
+        this.inactivityTimeoutListener = () => {
+            clearTimeout(this.inactivityTimer);
+            this.inactivityTimer = setTimeout(() => {
+                if (window.cromAuth && window.cromAuth.pubKeyHex) {
+                    console.log("Memory Wipe: Session expired due to inactivity.");
+                    window.cromAuth.keyPair = null;
+                    window.cromAuth.boxKeyPair = null;
+                    window.cromAuth.pubKeyHex = null;
+                    sessionStorage.removeItem('crom_vault');
+                    alert("Session expired due to inactivity. Vault keys wiped from RAM.");
+                    window.location.reload();
+                }
+            }, 15 * 60 * 1000); // 15 minutes
+        };
+
+        ['mousemove', 'keydown', 'scroll', 'click'].forEach(evt =>
+            window.addEventListener(evt, this.inactivityTimeoutListener)
+        );
+        this.inactivityTimeoutListener(); // Init
     },
 
     bindFilters() {

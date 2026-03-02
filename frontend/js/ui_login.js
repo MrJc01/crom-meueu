@@ -46,10 +46,21 @@ function injectLoginModal() {
                 width: 100%; padding: 16px; border-radius: 12px;
                 border: 2px dashed #444; background: #222; color: #ccc;
                 font-size: 15px; font-weight: 500; cursor: pointer;
-                transition: all 0.2s; margin-bottom: 16px;
+                transition: all 0.2s; margin-bottom: 12px;
             ">
-                📂 Upload .cromid file
+                📂 Upload .cromid Vault
                 <input type="file" id="cromid-file" accept=".cromid,.json" style="display:none">
+            </label>
+
+            <label id="restore-file-label" style="
+                display: flex; align-items: center; justify-content: center; gap: 10px;
+                width: 100%; padding: 12px; border-radius: 12px;
+                background: rgba(255,255,255,0.05); color: #aaa; border: 1px solid #444;
+                font-size: 13px; font-weight: 500; cursor: pointer;
+                transition: all 0.2s; margin-bottom: 4px;
+            ">
+                📦 Import Backup (.zip)
+                <input type="file" id="backup-file" accept=".zip" style="display:none">
             </label>
 
             <div style="display:flex; align-items:center; gap:12px; margin:20px 0;">
@@ -94,27 +105,56 @@ function injectLoginModal() {
         reader.readAsText(file);
     };
 
-    // Hover effect on file label
+    // --- Event: Restore Backup (.zip) ---
+    const backupInput = document.getElementById('backup-file');
+    if (backupInput) {
+        backupInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (window.cromExporter) {
+                await window.cromExporter.restoreBackup(file);
+            } else {
+                alert("Backup Exporter module not loaded.");
+            }
+        };
+    }
+
+    // Drag and Drop Effects
     const fileLabel = document.getElementById('file-upload-label');
+    fileLabel.ondragover = (e) => {
+        e.preventDefault();
+        fileLabel.style.borderColor = '#00d2ff';
+        fileLabel.style.background = 'rgba(0, 210, 255, 0.1)';
+        fileLabel.style.color = '#fff';
+    };
+    fileLabel.ondragleave = (e) => {
+        e.preventDefault();
+        fileLabel.style.borderColor = '#444';
+        fileLabel.style.background = '#222';
+        fileLabel.style.color = '#ccc';
+    };
+    fileLabel.ondrop = (e) => {
+        e.preventDefault();
+        fileLabel.style.borderColor = '#444';
+        fileLabel.style.background = '#222';
+        if (e.dataTransfer.files.length) {
+            document.getElementById('cromid-file').files = e.dataTransfer.files;
+            document.getElementById('cromid-file').dispatchEvent(new Event('change'));
+        }
+    };
     fileLabel.onmouseenter = () => { fileLabel.style.borderColor = '#00d2ff'; fileLabel.style.color = '#fff'; };
     fileLabel.onmouseleave = () => { fileLabel.style.borderColor = '#444'; fileLabel.style.color = '#ccc'; };
 
     // --- Event: Generate New Identity ---
-    document.getElementById('gen-btn').onclick = () => {
+    document.getElementById('gen-btn').onclick = async () => {
         try {
-            const cromidData = window.cromAuth.generateIdentityPlain();
+            const pass = prompt("Create a Master Password for your Vault:");
+            if (!pass) return;
+
+            const cromidData = await window.cromAuth.generateIdentity(pass, window.location.origin);
 
             // Download the file
-            const json = JSON.stringify(cromidData, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${cromidData.pubKey.substring(0, 8)}.cromid`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
+            window.cromAuth.exportIdentity(cromidData);
 
             // Persist session
             sessionStorage.setItem('crom_vault', JSON.stringify(cromidData));
@@ -152,13 +192,14 @@ function updateAuthUI() {
         // Update sidebar
         if (sidebarIdentity) {
             sidebarIdentity.innerHTML = `
-                <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(0,255,65,0.06); border:1px solid rgba(0,255,65,0.2); border-radius:8px; cursor:pointer;" onclick="if(confirm('Logout?')){sessionStorage.removeItem('crom_identity');sessionStorage.removeItem('crom_vault');window.location.reload();}">
+                <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(0,255,65,0.06); border:1px solid rgba(0,255,65,0.2); border-radius:8px; cursor:pointer; margin-bottom: 8px;" onclick="if(confirm('Logout?')){sessionStorage.removeItem('crom_identity');sessionStorage.removeItem('crom_vault');window.location.reload();}">
                     <span style="width:32px;height:32px;border-radius:50%;background:hsl(${hue},55%,45%);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">${auth.pubKeyHex.substring(0, 2).toUpperCase()}</span>
                     <div style="min-width:0;">
                         <div style="font-size:12px;font-weight:600;color:#4ade80;">● Online</div>
                         <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@${auth.pubKeyHex.substring(0, 12)}…</div>
                     </div>
                 </div>
+                <button id="export-backup-btn" onclick="window.cromExporter.exportBackup()" style="width:100%; padding:6px; background:rgba(0, 210, 255, 0.1); border:1px solid rgba(0,210,255,0.3); color:#00d2ff; font-size:11px; font-weight:bold; border-radius:6px; cursor:pointer; transition:0.2s">💾 Export Backup</button>
             `;
         }
 
@@ -181,7 +222,23 @@ function updateAuthUI() {
                     window.location.reload();
                 }
             };
+
+            const expBadge = document.createElement('div');
+            expBadge.id = 'export-badge';
+            expBadge.style.cssText = `
+                position: fixed; bottom: 130px; right: 20px;
+                background: rgba(0,210,255,0.1); border: 1px solid #00d2ff;
+                color: #00d2ff; padding: 6px 12px; border-radius: 20px;
+                font-size: 11px; font-weight: bold; cursor: pointer;
+                backdrop-filter: blur(5px); z-index: 1000;
+            `;
+            expBadge.innerHTML = `💾 Backup Data`;
+            expBadge.onclick = () => {
+                if (window.cromExporter) window.cromExporter.exportBackup();
+            };
+
             document.body.appendChild(badge);
+            document.body.appendChild(expBadge);
         }
     } else {
         // ── NOT LOGGED IN ──

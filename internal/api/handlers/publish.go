@@ -22,12 +22,14 @@ import (
 type PublishHandler struct {
 	repo      *postgres.NodeRepository
 	nonceRepo *postgres.NonceRepository
+	adminRepo *postgres.AdminRepository
 }
 
-func NewPublishHandler(repo *postgres.NodeRepository, nonceRepo *postgres.NonceRepository) *PublishHandler {
+func NewPublishHandler(repo *postgres.NodeRepository, nonceRepo *postgres.NonceRepository, adminRepo *postgres.AdminRepository) *PublishHandler {
 	return &PublishHandler{
 		repo:      repo,
 		nonceRepo: nonceRepo,
+		adminRepo: adminRepo,
 	}
 }
 
@@ -133,6 +135,17 @@ func (h *PublishHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	// - Uniqueness changes if Sig changes (which changes if Content/Nonce/Time changes).
 	// - Re-submitting the EXACT SAME signed message results in the SAME ID. (Idempotency Key)
 	sigHash := sha256.Sum256([]byte(req.Signature))
+	sigHashHex := fmt.Sprintf("%x", sigHash)
+
+	// 6.5 Check Banlist for Content (Hash Banning)
+	if h.adminRepo != nil {
+		isBanned, err := h.adminRepo.IsBannedHash(r.Context(), sigHashHex)
+		if err == nil && isBanned {
+			http.Error(w, "Access Denied: This content hash is banned from the server.", http.StatusForbidden)
+			return
+		}
+	}
+
 	var idBytes [16]byte
 	copy(idBytes[:], sigHash[:16])
 

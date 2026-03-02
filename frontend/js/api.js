@@ -101,18 +101,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const links = [
         { icon: '➕', href: 'publish.html', title: 'New' },
-        { icon: '🐦', href: 'twitter.html', title: 'X' },
-        { icon: '📸', href: 'instagram.html', title: 'Insta' },
-        { icon: '📱', href: 'tiktok.html', title: 'Tok' },
-        { icon: '📺', href: 'youtube.html', title: 'Tube' },
-        { icon: '📰', href: 'tabnews.html', title: 'News' },
-        { icon: '👥', href: 'facebook.html', title: 'Face' },
+        { icon: '🌐', href: 'index.html', title: 'Feed' },
         { icon: '🔐', href: 'inbox.html', title: 'Inbox' },
         { icon: '🔍', href: 'explorer.html', title: 'Explorer' },
         { icon: '⚠️', href: 'admin.html', title: 'Admin' },
     ];
 
-    const currentPath = window.location.pathname.split('/').pop();
+    const currentPath = window.location.pathname.split('/').pop() || 'index.html';
 
     links.forEach(link => {
         const a = document.createElement('a');
