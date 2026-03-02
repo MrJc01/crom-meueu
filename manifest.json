@@ -1,0 +1,27 @@
+{
+  "files": {
+    "/admin.html": "b6846b9a125ef8e222b7765e3411c6757c391d72fa4bfb76f5d9d804afe8a131",
+    "/chat.html": "ae2ae665314adf5cfc64c09daefbacec4dac731e0376d4a7a22f03c33310e5dc",
+    "/explorer.html": "7d2b2412ff892baa94546f5c012564c624d05130e9818a793f50d47815b91906",
+    "/inbox.html": "8a8343fdf2ac6d22bfeb06181e5e547b53af1e01a647c095465c3e39fcd9c7bc",
+    "/index.html": "d32566c973013c7685fccb36695e8a08aca02387bc1a82d1d0d6911ad162d0a9",
+    "/js/admin.js": "df5a47bc30ae72096ddef88252252ec17fed7b8de939574dba1113d9e309cd97",
+    "/js/api.js": "67d8e716a89da28a29aa627074d5dcb13f491c84be0dcfa6dd5d5808b88a88fc",
+    "/js/app.js": "71126884f4beb94563e4abf3ea55083fd087a38aeed235a383e05ea8c3917215",
+    "/js/checker.js": "2ba1f49294b4dd3ecb2fd538da9adb16d38022b1735259d40993a46cf20fb324",
+    "/js/crypto_auth.js": "f5bc09f7778c888c326e19461bde3af505ad9733e8d82a8ac297841de9e398dc",
+    "/js/exporter.js": "c9595f24af5699815ba37c1203d265533ccbe6251642fd508931b225488917be",
+    "/js/lib/ed2curve.min.js": "0b733c50ee3a667a76c5b28b2566c3414311b12093390d8e01287bb2975c79e5",
+    "/js/lib/jszip.min.js": "acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e",
+    "/js/lib/nacl.min.js": "973cc5733cc7432e30ee4682098f413094f494bccf76a567c23908c5035ddbbc",
+    "/js/lib/nacl-util.min.js": "97dc9513760f5ac4c3e3c7232360018d0a38eba480474a0b2a3d55cd03a56755",
+    "/js/sdk/auth.js": "c0b4f3351aa4eacf53f4110fa6a1753ff371b681695d9405b3ad5e1e684a5c0e",
+    "/js/sdk/client.js": "187e230870760fec945b6d531d2812329ee93dd5ae395dd58c1757a6b4b85da6",
+    "/js/ui_dm.js": "4398e26c477d642240755836347a33eededf29ab51938c0acaeb29cd1a41706d",
+    "/js/ui_login.js": "8f8dec1286b73e54e5c9f1e914429ba1416b6b8b2ee5a2c830bcbad4a87d0043",
+    "/js/ui_server.js": "e7ccaed3162664dc6c76837cd824d39181f96b1547b9e0c3277d6c9e19e0e491",
+    "/profile.html": "563fbd35795b5418254eb00af0f64fa7c90442b69f8aa6990772d183e31ef034",
+    "/publish.html": "1ebbbdaf422c10cec0d70cea28943afbaf380fdcc8fdca2390a02647960b1793",
+    "/thread.html": "61bdf76a66b5a01c4add5e127e2598c5b98abe3ee654a9a7a8345480faefb136"
+  }
+}

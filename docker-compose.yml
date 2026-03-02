@@ -11,6 +11,7 @@ services:
       - SERVER_MODE=NORMAL # Options: NORMAL, WHITELIST
       - NETWORK_ID=meueu-mainnet-v1
       - SYNC_EXTERNAL_POSTS=true
+      - SERVER_KEY_PATH=/app/keys/.server_key
       # - SERVER_URL=https://your-domain.com
       # - SEED_NODES=https://peer1.example.com,https://peer2.example.com
       # - ADMIN_SECRET_HASH=... (Set this in .env)
@@ -18,6 +19,8 @@ services:
       - db
     networks:
       - crom_net
+    volumes:
+      - ./data/server_keys:/app/keys
 
   db:
     image: postgres:15-alpine

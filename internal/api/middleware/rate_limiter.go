@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"sync"
@@ -8,7 +11,7 @@ import (
 )
 
 // RateLimiter implements a simple in-memory token bucket rate limiter.
-// It limits requests by both IP address and public key (X-MeuEu-Author header).
+// It limits requests by both IP address and public key.
 type RateLimiter struct {
 	ipBuckets     sync.Map // map[string]*bucket
 	pubKeyBuckets sync.Map // map[string]*bucket
@@ -105,11 +108,28 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// 2. Rate limit by PubKey (if header present)
+		// 2. Rate limit by PubKey via JSON Body Inspection
 		pubKey := r.Header.Get("X-MeuEu-Author")
+
+		// If publishing, read the body to extract author_pubkey
+		if r.Body != nil && (r.URL.Path == "/v1/publish" || pubKey == "") {
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err == nil && len(bodyBytes) > 0 {
+				// Important: Restore the body buffer for downstream handlers
+				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+				var partial struct {
+					AuthorPubkey string `json:"author_pubkey"`
+				}
+				if json.Unmarshal(bodyBytes, &partial) == nil && partial.AuthorPubkey != "" {
+					pubKey = partial.AuthorPubkey
+				}
+			}
+		}
+
 		if pubKey != "" {
 			if !rl.allow(&rl.pubKeyBuckets, pubKey, rl.pubKeyRate) {
-				http.Error(w, "Rate limit exceeded (Author). Try again later.", http.StatusTooManyRequests)
+				http.Error(w, "Rate limit exceeded for pubkey", http.StatusTooManyRequests)
 				return
 			}
 		}

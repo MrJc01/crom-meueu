@@ -108,68 +108,96 @@ const app = {
         let mediaSection = '';
         const [badgeIcon, badgeLabel, badgeColor] = this.getKindInfo(kind);
 
-        if (kind.startsWith('video') || kind === 'video/external') {
-            const videoUrl = payload.url || payload.video_url || '';
-            const embedUrl = this.getEmbedUrl(videoUrl);
-            if (embedUrl) {
-                mediaSection = `<div class="rounded-xl overflow-hidden my-3 bg-black"><iframe src="${embedUrl}" class="w-full aspect-video" frameborder="0" allowfullscreen loading="lazy"></iframe></div>`;
-            }
-            content = payload.title || payload.text || payload.content || '';
-        } else if (kind.startsWith('image') || kind === 'photo') {
-            const imgUrl = payload.url || payload.image_url || '';
-            if (imgUrl) {
-                mediaSection = `<div class="rounded-xl overflow-hidden my-3"><img src="${imgUrl}" alt="Image" class="w-full max-h-[400px] object-cover" loading="lazy" onerror="this.style.display='none'"></div>`;
-            }
-            content = payload.caption || payload.text || payload.content || '';
-        } else {
-            content = payload.content || payload.text || payload.body || '';
-            if (payload.title) {
-                content = `<span class="font-semibold text-white">${this.escapeHtml(payload.title)}</span><br><span class="text-gray-300">${content}</span>`;
-            }
+        switch (kind) {
+            case 'text/short':
+                // Renderiza como um 'tweet' - micro-blog style
+                content = `<p class="text-[15px] text-gray-200 leading-snug">${this.escapeHtml(payload.content || payload.text || '')}</p>`;
+                break;
+            case 'text/article':
+                // Renderiza como um post de blog (Tabnews)
+                content = `<h2 class="text-xl font-bold text-white mb-2">${this.escapeHtml(payload.title || 'Untitled Article')}</h2>`;
+                content += `<div class="prose prose-invert max-w-none prose-sm mt-2"><p class="text-gray-300 leading-relaxed whitespace-pre-wrap">${this.escapeHtml(payload.content || payload.body || '')}</p></div>`;
+                break;
+            case 'video/mp4':
+                // Renderiza um reprodutor de vídeo HTML5
+                const vidUrl = payload.url || payload.video_url || '';
+                if (vidUrl) {
+                    mediaSection = `<div class="rounded-xl overflow-hidden my-3 bg-black border border-white/5"><video src="${this.escapeHtml(vidUrl)}" controls class="w-full max-h-[400px]" preload="metadata"></video></div>`;
+                }
+                const vidTitle = payload.title || payload.caption || '';
+                if (vidTitle) {
+                    content = `<p class="text-gray-300 mt-2 font-medium">${this.escapeHtml(vidTitle)}</p>`;
+                }
+                break;
+            default:
+                // Fallback for other kinds backward compatibility
+                if (kind.startsWith('video') || kind === 'video/external') {
+                    const embedUrl = this.getEmbedUrl(payload.url || payload.video_url || '');
+                    if (embedUrl) {
+                        mediaSection = `<div class="rounded-xl overflow-hidden my-3 bg-black"><iframe src="${embedUrl}" class="w-full aspect-video" frameborder="0" allowfullscreen loading="lazy"></iframe></div>`;
+                    }
+                    content = `<p class="text-gray-300">${this.escapeHtml(payload.title || payload.text || payload.content || '')}</p>`;
+                } else if (kind.startsWith('image') || kind === 'photo') {
+                    const imgUrl = payload.url || payload.image_url || '';
+                    if (imgUrl) {
+                        mediaSection = `<div class="rounded-xl overflow-hidden my-3"><img src="${this.escapeHtml(imgUrl)}" alt="Image" class="w-full max-h-[400px] object-cover" loading="lazy" onerror="this.style.display='none'"></div>`;
+                    }
+                    content = `<p class="text-gray-300">${this.escapeHtml(payload.caption || payload.text || payload.content || '')}</p>`;
+                } else {
+                    let baseContent = this.escapeHtml(payload.content || payload.text || payload.body || '');
+                    if (payload.title) {
+                        content = `<h3 class="font-semibold text-white text-lg mb-1">${this.escapeHtml(payload.title)}</h3><p class="text-gray-300 leading-relaxed">${baseContent}</p>`;
+                    } else {
+                        content = `<p class="text-gray-300 leading-relaxed">${baseContent}</p>`;
+                    }
+                }
+                break;
         }
 
-        if (payload.url && !kind.startsWith('video') && !kind.startsWith('image')) {
-            content += `<div class="mt-2"><a href="${this.escapeHtml(payload.url)}" target="_blank" rel="noopener" class="text-cyan-400 hover:underline text-xs truncate block">🔗 ${this.escapeHtml(payload.url)}</a></div>`;
+        if (payload.url && kind !== 'video/mp4' && !kind.startsWith('video') && !kind.startsWith('image')) {
+            content += `<div class="mt-3"><a href="${this.escapeHtml(payload.url)}" target="_blank" rel="noopener" class="text-crom hover:underline text-xs truncate block max-w-full"><span class="bg-crom/10 px-2 py-1.5 rounded-lg inline-flex items-center gap-1.5 border border-crom/20 font-medium">🔗 ${this.escapeHtml(payload.url)}</span></a></div>`;
         }
 
         return `
-        <article class="node-card bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:border-white/10 hover:bg-white/[0.05] transition-all" data-kind="${kind}">
-            <div class="flex items-center gap-3 mb-3">
-                <a href="profile.html?pubkey=${node.author_pubkey}" class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 hover:ring-2 ring-white/20 transition" style="background: hsl(${hue}, 55%, 45%)">
-                    ${authorShort.substring(0, 2).toUpperCase()}
+        <article class="node-card bg-surface-800/80 backdrop-blur border border-white/[0.08] shadow-2xl rounded-2xl p-5 mb-4 hover:border-white/20 hover:bg-surface-800 transition-all group" data-kind="${this.escapeHtml(kind)}">
+            <div class="flex items-center gap-3.5 mb-4">
+                <a href="profile.html?pubkey=${this.escapeHtml(node.author_pubkey)}" class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 shadow-lg group-hover:ring-2 ring-white/30 transition-all" style="background: hsl(${hue}, 60%, 45%)">
+                    ${this.escapeHtml(authorShort.substring(0, 2).toUpperCase())}
                 </a>
                 <div class="flex-1 min-w-0">
-                    <a href="profile.html?pubkey=${node.author_pubkey}" class="text-sm font-semibold text-white hover:underline">${authorShort}…</a>
-                    <span class="text-xs text-gray-500 ml-2">${time}</span>
+                    <a href="profile.html?pubkey=${this.escapeHtml(node.author_pubkey)}" class="text-[15px] font-bold text-white hover:text-crom transition-colors">${this.escapeHtml(authorShort)}…</a>
+                    <div class="text-xs text-gray-400 font-medium mt-0.5">${this.escapeHtml(time)}</div>
                 </div>
-                <span class="px-2 py-1 rounded-md text-[11px] font-medium ${badgeColor}">${badgeIcon} ${badgeLabel}</span>
+                <span class="px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-bold shadow-sm ${badgeColor}">${badgeIcon} ${badgeLabel}</span>
             </div>
             ${mediaSection}
-            <div class="text-sm text-gray-300 leading-relaxed ${content ? '' : 'text-gray-600 italic'}">${content || 'Empty payload'}</div>
-            <div class="flex items-center gap-4 mt-3 pt-3 border-t border-white/5 text-xs">
-                <a href="thread.html?id=${node.id}" class="text-gray-500 hover:text-cyan-400 transition flex items-center gap-1">💬 Thread</a>
-                <span class="text-gray-600 font-mono ml-auto" title="${node.id}">ID: ${(node.id || '').substring(0, 8)}</span>
+            <div class="pt-1 pb-2 ${content ? '' : 'text-gray-600 italic'}">${content || 'Empty payload'}</div>
+            <div class="flex items-center gap-4 mt-3 pt-4 border-t border-white/[0.06] text-xs font-semibold">
+                <a href="thread.html?id=${this.escapeHtml(node.id)}" class="text-gray-400 hover:text-crom transition flex items-center gap-1.5 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg"><span class="text-sm">💬</span> Discuss</a>
+                <span class="text-gray-600 font-mono ml-auto opacity-40 hover:opacity-100 transition cursor-help" title="${this.escapeHtml(node.id)}">#${(node.id || '').substring(0, 8)}</span>
             </div>
         </article>`;
     },
 
     getKindInfo(kind) {
         const map = {
-            'text': ['📝', 'Text', 'bg-blue-500/15 text-blue-400'],
-            'text/article': ['📰', 'Article', 'bg-purple-500/15 text-purple-400'],
-            'article': ['📰', 'Article', 'bg-purple-500/15 text-purple-400'],
-            'note': ['📝', 'Note', 'bg-blue-500/15 text-blue-400'],
-            'comment': ['💬', 'Comment', 'bg-gray-500/15 text-gray-400'],
-            'video': ['📹', 'Video', 'bg-red-500/15 text-red-400'],
-            'video/external': ['📺', 'Video', 'bg-red-500/15 text-red-400'],
-            'video/embed': ['📺', 'Embed', 'bg-red-500/15 text-red-400'],
-            'image': ['📸', 'Image', 'bg-pink-500/15 text-pink-400'],
-            'image/url': ['📸', 'Image', 'bg-pink-500/15 text-pink-400'],
-            'photo': ['📸', 'Photo', 'bg-pink-500/15 text-pink-400'],
-            'link': ['🔗', 'Link', 'bg-yellow-500/15 text-yellow-400'],
-            'bookmark': ['🔖', 'Bookmark', 'bg-yellow-500/15 text-yellow-400'],
+            'text': ['📝', 'Text', 'bg-blue-500/15 text-blue-400 border border-blue-500/20'],
+            'text/short': ['🐦', 'Post', 'bg-blue-500/15 text-blue-400 border border-blue-500/20'],
+            'text/article': ['📰', 'Article', 'bg-purple-500/15 text-purple-400 border border-purple-500/20'],
+            'article': ['📰', 'Article', 'bg-purple-500/15 text-purple-400 border border-purple-500/20'],
+            'note': ['📝', 'Note', 'bg-blue-500/15 text-blue-400 border border-blue-500/20'],
+            'comment': ['💬', 'Comment', 'bg-gray-500/15 text-gray-400 border border-gray-500/20'],
+            'video': ['📹', 'Video', 'bg-red-500/15 text-red-400 border border-red-500/20'],
+            'video/mp4': ['📹', 'HTML5', 'bg-red-500/15 text-red-400 border border-red-500/20'],
+            'video/external': ['📺', 'Video', 'bg-red-500/15 text-red-400 border border-red-500/20'],
+            'video/embed': ['📺', 'Embed', 'bg-red-500/15 text-red-400 border border-red-500/20'],
+            'image': ['📸', 'Image', 'bg-pink-500/15 text-pink-400 border border-pink-500/20'],
+            'image/url': ['📸', 'Image', 'bg-pink-500/15 text-pink-400 border border-pink-500/20'],
+            'photo': ['📸', 'Photo', 'bg-pink-500/15 text-pink-400 border border-pink-500/20'],
+            'link': ['🔗', 'Link', 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/20'],
+            'bookmark': ['🔖', 'Bookmark', 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/20'],
         };
-        return map[kind] || ['📦', kind, 'bg-gray-500/15 text-gray-400'];
+        return map[kind] || ['📦', kind, 'bg-gray-500/15 text-gray-400 border border-gray-500/20'];
     },
 
     getEmbedUrl(url) {
